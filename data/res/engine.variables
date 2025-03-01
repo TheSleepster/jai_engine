@@ -1,0 +1,12 @@
+:/Render_State
+vsync                 true
+
+:/Sound_Manager
+master_volume         1.0
+soundfx_volume        1.0
+
+:/Asset_Manager
+max_font_size         512
+small_font_size       32
+medium_font_size      64
+large_font_size       128

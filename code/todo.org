@@ -1,0 +1,34 @@
+#+TITLE: This is a list of stuff that still needs to be done
+* Engine Stuff
+- [ ] Basic OpenGL Implemenation;
+- [ ] Input system
+- [ ] Sound Engine 
+- [ ] Asset API
+- [ ] Multithreaded Job System
+
+*** Frontend
+- [ ] Drawing API for 2D Quads
+- [ ] Texturing the quads
+- [ ] Atlas API
+
+** Input still needs:
+- [ ] IsDown/WasDown/IsPressed/IsReleased functionality
+- [ ] Consume Input API
+- [ ] Controllers and gamepad
+
+** Audio still needs:
+- [ ] Loading WAV files, both compressed and uncompressed.
+- [ ] Playing Audio files.
+- [ ] Mixing of the audio tracks (may look to middleware like FMOD)
+- [ ] "Emitters". These would control things like:
+  - [ ] How often can the sound play?
+  - [ ] How many times can the sound play simultaneously from a single emitter?
+  - [ ] Stopping the sound after a length of time
+
+** Asset API still needs:
+- [ ] What kind of asset is it? (WAV?, PNG?, Font?)
+- [ ] On demand loading
+- [ ] Job Queue Usage
+  
+** The Job system needs:
+- [ ] Brother a lot
