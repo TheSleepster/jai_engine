@@ -130,6 +130,8 @@ main :: ()
         time            : Time_Data;
 
         game_state      : *Game_State;
+        entity_manager  : Entity_Manager;
+
         transient_state : *Transient_State;
         
         window_data.window_size = .{1920, 1080};
@@ -171,7 +173,8 @@ main :: ()
                     draw_frame_data.vertex_buffer_ptr     = *draw_frame_data.primary_vertex_buffer[0];
                 }
 
-                game_state.input_manager = *input_manager;
+                game_state.input_manager  = *input_manager;
+                game_state.entity_manager = *entity_manager;
             }
 
             // ASSET INIT
@@ -244,7 +247,8 @@ main :: ()
                                    *render_state,
                                    *draw_frame_data,
                                    *sound_manager,
-                                   *asset_manager);
+                                   *asset_manager,
+                                   *entity_manager);
             }
 
             accumulator: float32;

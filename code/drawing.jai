@@ -30,6 +30,7 @@ add_quad_to_render_layer :: (draw_frame : *Draw_Frame_Data, quad : *Render_Quad)
     else draw_frame.render_layer_info[quad.z_layer].layer_transparent_quad_counter += 1;
 }
 
+// NOTE(Sleepster): layers closer to zero render first.
 push_render_layer :: inline (draw_frame : *Draw_Frame_Data, layer_index : s32) 
 {
     draw_frame.current_active_z_layer = layer_index;
@@ -48,6 +49,7 @@ add_texture_to_draw_frame_list :: (draw_frame: *Draw_Frame_Data, texture_id: u32
 }
 
 // NOTE(Sleepster): pass U32_MAX to the texture id if there is no texture
+// NOTE(Sleepster): Also, make this defualt color to white, and the render_size to .{8, 8}
 create_draw_quad :: (draw_frame          : *Draw_Frame_Data,
                      position            : Vector2,
                      render_size         : Vector2,
@@ -135,9 +137,12 @@ draw_quad_projected :: (draw_frame : *Draw_Frame_Data, quad : *Render_Quad, worl
     return render_quad;
 }
 
+// TODO(Sleepster): write my own damn math library because "transpose" pisses me the fuck off.
 draw_quad_in_view :: (draw_frame : *Draw_Frame_Data, quad : *Render_Quad) -> *Render_Quad
 {
     world_to_clip := multiply(draw_frame.active_view_matrix, draw_frame.active_projection_matrix);
+    world_to_clip  = transpose(world_to_clip);
+    
     return draw_quad_projected(draw_frame, quad, world_to_clip);
 }
 
@@ -150,7 +155,7 @@ draw_quad :: (draw_frame          : *Draw_Frame_Data,
               rotation            : float,
               render_color        : Vector4) -> *Render_Quad
 {
-    quad := create_draw_quad(draw_frame, .{floor(position.x), floor(position.y)}, render_size, null_matrix,
+    quad := create_draw_quad(draw_frame, position, render_size, null_matrix,
                              required_texture_id, atlas_offset, sprite_size,
                              rotation, render_color);
     return draw_quad_in_view(draw_frame, *quad);
@@ -162,7 +167,7 @@ draw_rect :: (draw_frame          : *Draw_Frame_Data,
               rotation            : float,
               render_color        : Vector4) -> *Render_Quad
 {
-    quad := create_draw_quad(draw_frame, .{floor(position.x), floor(position.y)}, render_size, null_matrix,
+    quad := create_draw_quad(draw_frame, position, render_size, null_matrix,
                              U32_MAX, .{}, .{},
                              rotation, render_color);
     return draw_quad_in_view(draw_frame, *quad);

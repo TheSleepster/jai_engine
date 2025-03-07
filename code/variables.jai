@@ -61,17 +61,19 @@ add_value_container :: (container_pointer: *$T)
     array_add(*containers, container);
 }
 
-init_variable_data :: (filepath      :  string,
-                       render_state  : *Render_State,
-                       draw_frame    : *Draw_Frame_Data,
-                       sound_engine  : *Sound_Manager,
-                       asset_manager : *Asset_Manager)
+init_variable_data :: (filepath       :  string,
+                       render_state   : *Render_State,
+                       draw_frame     : *Draw_Frame_Data,
+                       sound_engine   : *Sound_Manager,
+                       asset_manager  : *Asset_Manager,
+                       entity_manager : *Entity_Manager)
 {
     // GET CONTAINERS
     add_value_container(render_state);
     add_value_container(draw_frame);
     add_value_container(sound_engine);
     add_value_container(asset_manager);
+    add_value_container(entity_manager);
     
     present: bool;
     for *DEBUG_variable_file_storage

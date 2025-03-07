@@ -87,8 +87,8 @@ layout(location = 1) in vec4 vColor;
 layout(location = 2) in vec2 vUVData;
 layout(location = 3) in uint vTexIndex;
 
-out vec4 vOutColor;
-out vec2 vOutUVData;
+out vec4      vOutColor;
+out vec2      vOutUVData;
 out flat uint vOutTexIndex;
 
 void main()
@@ -113,6 +113,10 @@ void main()
 {
     vec2 NormalizedUV = vOutUVData / vec2(2048, 2048);
     vec4 TextureColor = texture(AtlasArray[vOutTexIndex], NormalizedUV);
+    if(TextureColor.a == 0.0)
+    {
+        discard;
+    }
 
     vFragColor = TextureColor * vOutColor;
 }
