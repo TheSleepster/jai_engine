@@ -81,6 +81,10 @@ create_draw_quad :: (draw_frame          : *Draw_Frame_Data,
     quad.is_transparent = ifx render_color.w >= 1.0 then cast(s32)0 else cast(s32)1;
     quad.model_matrix   = model_matrix;
     quad.z_layer        = draw_frame.current_active_z_layer;
+    if quad.z_layer > MAX_LAYERS
+    {
+        log("[ERROR]: Layer Index '%' is greater than the layer count of '%'.\n", quad.z_layer, MAX_LAYERS);
+    }
     
     if required_texture_id != U32_MAX 
     {
