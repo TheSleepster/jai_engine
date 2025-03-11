@@ -304,18 +304,25 @@ load_texture_data_from_dir :: (info: *File_Visit_Info, data: *void)
 load_textures_into_atlas :: (asset_manager: *Asset_Manager, key: string)
 {
     asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.textures, key);
-    if asset_slot.slot_state == Asset_Slot_State.UNLOADED && asset_slot.texture_data.filepath.data != null
+    if asset_slot
     {
-        path, name, ext := path_decomp(asset_slot.texture_data.filepath);
+        if asset_slot.slot_state == Asset_Slot_State.UNLOADED && asset_slot.texture_data.filepath.data != null
+        {
+            path, name, ext := path_decomp(asset_slot.texture_data.filepath);
 
-        file_data : Visit_File_Data;
-        file_data.transient_state = asset_manager.transient_state;
-        visit_files(path, true, cast(*void)*file_data, load_texture_data_from_dir);
+            file_data : Visit_File_Data;
+            file_data.transient_state = asset_manager.transient_state;
+            visit_files(path, true, cast(*void)*file_data, load_texture_data_from_dir);
 
-        atlas := move_images_into_atlas(asset_manager, ENGINE_TEXTURE_WIDTH,  ENGINE_TEXTURE_HEIGHT);
-        create_texture_from_data(atlas);
+            atlas := move_images_into_atlas(asset_manager, ENGINE_TEXTURE_WIDTH,  ENGINE_TEXTURE_HEIGHT);
+            create_texture_from_data(atlas);
 
-        asset_manager.textures_to_insert = 0;
+            asset_manager.textures_to_insert = 0;
+        }
+    }
+    else
+    {
+        log("[ERROR]: Unable to find texture key '%'. not rendering...\n", key);
     }
 }
 

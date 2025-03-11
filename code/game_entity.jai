@@ -15,6 +15,8 @@ entity_archetype: enum u64
     NIL;
     PLAYER;
     CRATE;
+    RESOURCE_NODE;
+    FURNACE;
 };
 
 Entity :: struct

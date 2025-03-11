@@ -43,6 +43,34 @@ setup_entity_build_crate :: (entity: *Entity)
     entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
 }
 
+setup_entity_furnace_block :: (entity: *Entity)
+{
+    entity.sprite_data  = sprite_furnace;
+    entity.archetype    = xx entity_archetype.FURNACE;
+    entity.draw_color   = WHITE;
+    entity.render_size  = .{8, 8};
+    entity.flags       |= xx IS_GRABBABLE;
+    entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
+}
+
+setup_entity_stone_node :: (entity: *Entity)
+{
+    entity.sprite_data  = sprite_stone_node;
+    entity.archetype    = xx entity_archetype.RESOURCE_NODE;
+    entity.draw_color   = WHITE;
+    entity.render_size  = .{8, 8};
+    entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
+}
+
+setup_entity_coal_node :: (entity: *Entity)
+{
+    entity.sprite_data  = sprite_coal_node;
+    entity.archetype    = xx entity_archetype.RESOURCE_NODE;
+    entity.draw_color   = WHITE;
+    entity.render_size  = .{8, 8};
+    entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
+}
+
 entity_check_direction :: (entity: *Entity, new_pos: Vector2)
 {
     // NOTE(Sleepster): If you look here in the future and
@@ -59,6 +87,7 @@ entity_check_direction :: (entity: *Entity, new_pos: Vector2)
         ifx direction == half_pi then entity.direction = .{0, 1} else entity.direction = .{0, -1};
     }
     else if abs(direction) == PI
+
     {
         ifx direction == PI then entity.direction = .{-1, 0} else entity.direction = .{1, 0};
     }
@@ -139,12 +168,14 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         game_font          = asset_get_font(asset_manager, "LiberationMono-Regular");
 
         default_sprite     = asset_get_sprite(asset_manager, "null_sprite");
-        sprite_01          = asset_get_sprite(asset_manager, "sprite01");
         sprite_player      = asset_get_sprite(asset_manager, "player");
         sprite_furnace     = asset_get_sprite(asset_manager, "furnace");
         sprite_base_block  = asset_get_sprite(asset_manager, "block");
         sprite_workbench   = asset_get_sprite(asset_manager, "workbench");
         sprite_textureless = asset_get_sprite(asset_manager, "textureless_sprite");
+        sprite_stone_node  = asset_get_sprite(asset_manager, "stone_node");
+        sprite_coal_node   = asset_get_sprite(asset_manager, "coal_node");
+        sprite_tree_00     = asset_get_sprite(asset_manager, "tree_00");
 
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
@@ -167,19 +198,46 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         enemy := create_entity(entity_manager);
         setup_entity_build_crate(enemy);
 
-        for 0..20 - 1
+        for 0..200 - 1
         {
             seed := random_get();
             random_seed(seed);
 
             crate := create_entity(entity_manager);
             setup_entity_build_crate(crate);
-            crate.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
+            crate.position = .{random_get_within_range(*context.random_state, -1000.0, 1000.0), random_get_within_range(*context.random_state, -1000.0, 1000.0)};
             crate.position = round_to_nearest_tile(crate.position);
         }
 
+        furnace := create_entity(entity_manager);
+        setup_entity_furnace_block(furnace);
+        furnace.position = .{random_get_within_range(*context.random_state, -1000.0, 1000.0), random_get_within_range(*context.random_state, -1000.0, 1000.0)};
+        furnace.position = round_to_nearest_tile(furnace.position);
+
         game_state.primary_game_camera = game_camera_create(0.1, 0); 
         game_state.is_initialized = true;
+
+        for 0..200 - 1
+        {
+            seed := random_get();
+            random_seed(seed);
+
+            stone_node := create_entity(entity_manager);
+            setup_entity_stone_node(stone_node);
+            stone_node.position = .{random_get_within_range(*context.random_state, -1000.0, 1000.0), random_get_within_range(*context.random_state, -1000.0, 1000.0)};
+            stone_node.position = round_to_nearest_tile(stone_node.position);
+        }
+
+        for 0..200 - 1
+        {
+            seed := random_get();
+            random_seed(seed);
+
+            coal_node := create_entity(entity_manager);
+            setup_entity_coal_node(coal_node);
+            coal_node.position = .{random_get_within_range(*context.random_state, -1000.0, 1000.0), random_get_within_range(*context.random_state, -1000.0, 1000.0)};
+            coal_node.position = round_to_nearest_tile(coal_node.position);
+        }
     }
 
     // NOTE(Sleepster): INIT WORLD FRAME
@@ -332,7 +390,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
 
     // NOTE(Sleepster): DEBUG TILES
-    push_render_layer(draw_frame, 15);
+    push_render_layer(draw_frame, 8);
     tile_offset := world_to_tile_pos(world_frame.player.position);
     tile_radius := (iVector2).{20, 12};
 
@@ -379,13 +437,15 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 }
 
 default_sprite        : *Atlas_Sprite;
-sprite_01             : *Atlas_Sprite;
 sprite_furnace        : *Atlas_Sprite;
 sprite_player         : *Atlas_Sprite;
 sprite_base_block     : *Atlas_Sprite;
 sprite_fire           : *Atlas_Sprite;
 sprite_workbench      : *Atlas_Sprite;
 sprite_textureless    : *Atlas_Sprite;
+sprite_stone_node     : *Atlas_Sprite; 
+sprite_coal_node      : *Atlas_Sprite;  
+sprite_tree_00        : *Atlas_Sprite;
 
 game_font             : *Dynamic_Render_Font;
 
