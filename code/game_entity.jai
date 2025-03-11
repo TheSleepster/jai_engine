@@ -34,6 +34,8 @@ Entity :: struct
 
     attached_entity : *Entity;
     direction       :  Vector2;
+
+    bounding_box    :  Range_V2;
 };
 
 create_entity :: (entity_manager: *Entity_Manager) -> *Entity

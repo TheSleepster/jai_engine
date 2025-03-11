@@ -24,21 +24,23 @@ World_Frame_Data :: struct
 
 setup_entity_player :: (player: *Entity)
 {
-    player.sprite_data = sprite_player;
-    player.archetype   = xx entity_archetype.PLAYER;
-    player.speed       = 10.0;
-    player.friction    = 0.1;
-    player.draw_color  = WHITE;
-    player.render_size = .{8, 8};
+    player.sprite_data  = sprite_player;
+    player.archetype    = xx entity_archetype.PLAYER;
+    player.speed        = 10.0;
+    player.friction     = 0.1;
+    player.draw_color   = WHITE;
+    player.render_size  = .{8, 8};
+    player.bounding_box = range_v2_create(player.position, player.position + player.render_size);
 }
 
 setup_entity_build_crate :: (entity: *Entity)
 {
-    entity.sprite_data = sprite_base_block;
-    entity.archetype   = xx entity_archetype.CRATE;
-    entity.draw_color  = WHITE;
-    entity.render_size = .{8, 8};
-    entity.flags      |= xx IS_GRABBABLE;
+    entity.sprite_data  = sprite_base_block;
+    entity.archetype    = xx entity_archetype.CRATE;
+    entity.draw_color   = WHITE;
+    entity.render_size  = .{8, 8};
+    entity.flags       |= xx IS_GRABBABLE;
+    entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
 }
 
 entity_check_direction :: (entity: *Entity, new_pos: Vector2)
@@ -157,18 +159,24 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         array_add(*input_manager.game_actions, *move_down);
         array_add(*input_manager.game_actions, *move_right);
 
-        player := create_entity(game_state.entity_manager);
+        player := create_entity(entity_manager);
         setup_entity_player(player);
         player.position.x = -30;
         player.speed      =  0.8;
 
-        enemy := create_entity(game_state.entity_manager);
+        enemy := create_entity(entity_manager);
         setup_entity_build_crate(enemy);
 
-        crate := create_entity(game_state.entity_manager);
-        setup_entity_build_crate(crate);
-        crate.position = .{10, 10};
+        for 0..20 - 1
+        {
+            seed := random_get();
+            random_seed(seed);
 
+            crate := create_entity(entity_manager);
+            setup_entity_build_crate(crate);
+            crate.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
+            crate.position = round_to_nearest_tile(crate.position);
+        }
 
         game_state.primary_game_camera = game_camera_create(0.1, 0); 
         game_state.is_initialized = true;
@@ -226,38 +234,90 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     draw_frame.active_view_matrix       = *world_frame.world_view;
     draw_frame.active_projection_matrix = *world_frame.world_projection;
 
-    // NOTE(Sleepster): PLAYER GRAB
+    // NOTE(Sleepster): UPDATE ENTITY COLLISION BOUNDING BOXES
+    {
+        for index: 0..entity_manager.active_entity_counter
+        {
+            entity := *entity_manager.entities[index];
+            if entity.flags & xx IS_VALID
+            {
+                // I am a bad person.
+                entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
+            }
+        }
+    }
+
+    // NOTE(Sleepster): WORLD FRAME SELECTED ENTITY
     {
         player        := world_frame.player;
         max_grab_dist := 16.0;
+        min_dist: float32 = max_grab_dist;
+        closest_entity: *Entity;
 
+        for index: 0..entity_manager.active_entity_counter
+        {
+            entity := *entity_manager.entities[index];
+            if (entity.flags & xx IS_VALID) && (entity.flags & xx IS_GRABBABLE)
+            {
+                dist := distance(player.position, entity.position);
+                if dist < min_dist
+                {
+                    min_dist = dist;
+                    closest_entity = entity;
+                }
+            }
+        }
+        if closest_entity
+        {
+            world_frame.selected_entity = closest_entity;
+        }
+
+        // NOTE(Sleepster): PLAYER GRAB
         if is_key_pressed(game_state.input_manager, xx SDL_SCANCODE_E)
         {
             if !player.attached_entity
             {
-                entity_to_grab: *Entity;
-                for entity_index: 0..entity_manager.active_entity_counter - 1
+                if world_frame.selected_entity && distance(player.position, world_frame.selected_entity.position) < max_grab_dist
                 {
-                    entity := *entity_manager.entities[entity_index];
-                    if (entity.flags & xx IS_VALID) && (entity.flags & xx IS_GRABBABLE)
-                    {
-                        dist := distance(player.position, entity.position);
-                        if dist < max_grab_dist
-                        {
-                            entity_to_grab = entity;
-                            break;
-                        }
-                    }
-                }
-                if entity_to_grab
-                {
-                    player.attached_entity = entity_to_grab;
+                    player.attached_entity = world_frame.selected_entity;
                 }
             }
             else
             {
-                player.attached_entity.position = round_to_nearest_tile(player.attached_entity.position + (.{8, 12} * player.direction)); 
-                player.attached_entity = null;
+                // NOTE(Sleepster): PLAYER BUILDING
+                collision: bool;
+                position_to_place := round_to_nearest_tile(player.attached_entity.position + (.{4, 8} * player.direction)); 
+                for index: 0..entity_manager.active_entity_counter
+                {
+                    entity := *entity_manager.entities[index];
+                    if (entity.flags & xx IS_VALID)
+                    {
+                        entity.bounding_box.min -= .{4, 2};
+                        entity.bounding_box.max -= .{4, 2};
+                        if range_v2_is_within(position_to_place, entity.bounding_box)
+                        {
+                            collision = true;
+                        }
+                    }
+                }
+                
+                if !collision
+                {
+                    offset_x: float32 = 0;
+                    offset_y: float32 = 0;
+                    if player.direction.x != 0
+                    {
+                        offset_x = 4 * player.direction.x;
+                    }
+
+                    if player.direction.y != 0
+                    {
+                        offset_y = 8 * player.direction.y;
+                    }
+
+                    player.attached_entity.position = round_to_nearest_tile(player.attached_entity.position + .{offset_x, offset_y}); 
+                    player.attached_entity = null;
+                }
             }
         }
 
@@ -265,10 +325,11 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         if entity
         {
             // TODO(Sleepster): mutiply this by the player's direction. 
-            grab_offset := player.position + (.{8, 2} * player.direction);
+            grab_offset := player.position + ((Vector2).{8, 4} * player.direction);
             entity.position = grab_offset;
         }
     }
+
 
     // NOTE(Sleepster): DEBUG TILES
     push_render_layer(draw_frame, 15);
@@ -346,3 +407,4 @@ map_color2: Vector4;
 
 #load "game_camera.jai";
 #load "game_entity.jai";
+#load "game_aabb.jai";

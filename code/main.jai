@@ -11,6 +11,7 @@
 #import "Unicode";
 #import "Text_File_Handler";
 #import "Compiler";
+#import "Random";
 
 // Bitmap loading and saving:
 #import "stb_image";
