@@ -6,7 +6,7 @@
 - [X] Asset API
 - [X] Multithreaded Job System
 
-*** Frontend
+** Frontend
 - [X] Drawing API for 2D Quads
 - [X] Texturing the quads
 - [X] Atlas API
@@ -32,3 +32,9 @@
   
 ** The Job system needs:
 - [ ] Brother a lot
+
+  
+* Game Stuff
+- [ ] A method of drawing text cleanly within world space. (for damage numbers)
+
+  

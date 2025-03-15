@@ -12,105 +12,48 @@ Game_State :: struct
 
 World_Frame_Data :: struct
 {
-    world_projection  : Matrix4;
-    world_view        : Matrix4;
+    world_projection      :  Matrix4;
+    world_view            :  Matrix4;
     
-    screen_projection : Matrix4;
-    screen_view       : Matrix4;
+    screen_projection     :  Matrix4;
+    screen_view           :  Matrix4;
 
-    player            : *Entity;
-    selected_entity   : *Entity;
+    player                : *Entity;
+    active_hovered_entity : *Entity;
+    entity_to_grab        : *Entity;
+
+    screen_space_mouse    :  Vector2;
+    world_space_mouse     :  Vector2;
 };
 
-setup_entity_player :: (player: *Entity)
+using game_action_index :: enum u64
 {
-    player.sprite_data  = sprite_player;
-    player.archetype    = xx entity_archetype.PLAYER;
-    player.speed        = 10.0;
-    player.friction     = 0.1;
-    player.draw_color   = WHITE;
-    player.render_size  = .{8, 8};
-    player.bounding_box = range_v2_create(player.position, player.position + player.render_size);
-}
-
-setup_entity_build_crate :: (entity: *Entity)
-{
-    entity.sprite_data  = sprite_base_block;
-    entity.archetype    = xx entity_archetype.CRATE;
-    entity.draw_color   = WHITE;
-    entity.render_size  = .{8, 8};
-    entity.flags       |= xx IS_GRABBABLE;
-    entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
-}
-
-setup_entity_furnace_block :: (entity: *Entity)
-{
-    entity.sprite_data  = sprite_furnace;
-    entity.archetype    = xx entity_archetype.FURNACE;
-    entity.draw_color   = WHITE;
-    entity.render_size  = .{8, 8};
-    entity.flags       |= xx IS_GRABBABLE;
-    entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
-}
-
-setup_entity_stone_node :: (entity: *Entity)
-{
-    entity.sprite_data  = sprite_stone_node;
-    entity.archetype    = xx entity_archetype.RESOURCE_NODE;
-    entity.draw_color   = WHITE;
-    entity.render_size  = .{8, 8};
-    entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
-}
-
-setup_entity_coal_node :: (entity: *Entity)
-{
-    entity.sprite_data  = sprite_coal_node;
-    entity.archetype    = xx entity_archetype.RESOURCE_NODE;
-    entity.draw_color   = WHITE;
-    entity.render_size  = .{8, 8};
-    entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
-}
-
-entity_check_direction :: (entity: *Entity, new_pos: Vector2)
-{
-    // NOTE(Sleepster): If you look here in the future and
-    // go "what idiot made the x's flipped?" it's actually no
-    // one's fault. This is just the way it works.
-
-    // TODO(Sleepster): maybe replace atan2 
-    direction := atan2(new_pos.y, new_pos.x);
-    if direction == 0.0 then direction = -PI;
-
-    half_pi := PI * 0.5;
-    if abs(direction) == half_pi 
-    {
-        ifx direction == half_pi then entity.direction = .{0, 1} else entity.direction = .{0, -1};
-    }
-    else if abs(direction) == PI
-
-    {
-        ifx direction == PI then entity.direction = .{-1, 0} else entity.direction = .{1, 0};
-    }
-}
+    MOVE_UP;
+    MOVE_DOWN;
+    MOVE_LEFT;
+    MOVE_RIGHT;
+    INTERACT;
+    ATTACK;
+};
 
 check_movement_actions :: (game_state: *Game_State, time: Time_Data)
 {
     game_state.input_axis = .{0, 0};
     
     using game_state;
-    if game_action_is_down(input_manager, *input_manager.game_actions.data[0])
+    if game_action_is_down(input_manager, *input_manager.game_actions[MOVE_UP])
     {
         game_state.input_axis.y =  1;
     }
-    if game_action_is_down(input_manager, *input_manager.game_actions.data[1])
+    if game_action_is_down(input_manager, *input_manager.game_actions[MOVE_DOWN])
     {
         game_state.input_axis.x = -1;
     }
-    if game_action_is_down(input_manager, *input_manager.game_actions.data[2])
+    if game_action_is_down(input_manager, *input_manager.game_actions[MOVE_LEFT])
     {
         game_state.input_axis.y = -1;
     }
-    if game_action_is_down(input_manager, *input_manager.game_actions.data[3])
+    if game_action_is_down(input_manager, *input_manager.game_actions[MOVE_RIGHT])
     {
         game_state.input_axis.x =  1;
     }
@@ -152,6 +95,54 @@ round_to_nearest_tile :: inline (pos: Vector2) -> Vector2
     return result;
 }
 
+transform_mouse_coords :: (view_matrix: Matrix4, projection: Matrix4, mouse_vector: Vector2, window_size: iVector2) -> Vector2
+{
+    result: Vector2; 
+
+    window_size_float := (Vector2).{cast(float32)window_size.x, cast(float32)window_size.y};
+    mouse_ndc := (Vector2).{mouse_vector.x / (window_size_float.x * 0.5) - 1.0, 1.0 - (mouse_vector.y / (window_size_float.y * 0.5))};
+    mouse_ndc_pos := make_vector4(mouse_ndc, 0.0, 1.0);
+
+    inverse_projection := inverse(projection);
+    inverse_view       := inverse(view_matrix);
+
+    mouse_ndc_pos = mat4_transform(inverse_projection, mouse_ndc_pos);
+    mouse_ndc_pos = mat4_transform(inverse_view,       mouse_ndc_pos);
+
+    result = mouse_ndc_pos.xy;
+    return result;
+}
+
+push_screen_space_matrices :: (draw_frame: *Draw_Frame_Data, world_frame: *World_Frame_Data)
+{
+    draw_frame.active_view_matrix       = *world_frame.screen_view;
+    draw_frame.active_projection_matrix = *world_frame.screen_projection;
+}
+
+push_world_space_matrices :: (draw_frame: *Draw_Frame_Data, world_frame: *World_Frame_Data)
+{
+    draw_frame.active_view_matrix       = *world_frame.world_view;
+    draw_frame.active_projection_matrix = *world_frame.world_projection;
+}
+
+reload_asset_pointers :: (asset_manager: *Asset_Manager)
+{
+    default_sprite     = asset_get_sprite(asset_manager, "null_sprite");
+    sprite_player      = asset_get_sprite(asset_manager, "player");
+    sprite_furnace     = asset_get_sprite(asset_manager, "furnace");
+    sprite_base_block  = asset_get_sprite(asset_manager, "block");
+    sprite_workbench   = asset_get_sprite(asset_manager, "workbench");
+    sprite_textureless = asset_get_sprite(asset_manager, "textureless_sprite");
+    sprite_stone_node  = asset_get_sprite(asset_manager, "stone_node");
+    sprite_coal_node   = asset_get_sprite(asset_manager, "coal_node");
+    sprite_tree_00     = asset_get_sprite(asset_manager, "tree_00");
+    sprite_stone_chunk = asset_get_sprite(asset_manager, "stone_chunk");
+    sprite_coal_chunk  = asset_get_sprite(asset_manager, "coal_chunk");
+    sprite_wood_chunk  = asset_get_sprite(asset_manager, "wood_chunk");
+
+    game_font          = asset_get_font(asset_manager, "LiberationMono-Regular");
+}
+
 game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data, draw_frame: *Draw_Frame_Data, time: Time_Data)
 {
     DEBUG_profile_function();
@@ -165,30 +156,37 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
     if !game_state.is_initialized
     {
-        game_font          = asset_get_font(asset_manager, "LiberationMono-Regular");
-
-        default_sprite     = asset_get_sprite(asset_manager, "null_sprite");
-        sprite_player      = asset_get_sprite(asset_manager, "player");
-        sprite_furnace     = asset_get_sprite(asset_manager, "furnace");
-        sprite_base_block  = asset_get_sprite(asset_manager, "block");
-        sprite_workbench   = asset_get_sprite(asset_manager, "workbench");
-        sprite_textureless = asset_get_sprite(asset_manager, "textureless_sprite");
-        sprite_stone_node  = asset_get_sprite(asset_manager, "stone_node");
-        sprite_coal_node   = asset_get_sprite(asset_manager, "coal_node");
-        sprite_tree_00     = asset_get_sprite(asset_manager, "tree_00");
+        reload_asset_pointers(asset_manager);
 
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
 
-        move_up    := game_action_set_action(game_state.input_manager, xx SDL_SCANCODE_W, xx SDL_CONTROLLER_AXIS_LEFTX);
-        move_left  := game_action_set_action(game_state.input_manager, xx SDL_SCANCODE_A, xx SDL_CONTROLLER_AXIS_LEFTX);
-        move_down  := game_action_set_action(game_state.input_manager, xx SDL_SCANCODE_S, xx SDL_CONTROLLER_AXIS_LEFTX);
-        move_right := game_action_set_action(game_state.input_manager, xx SDL_SCANCODE_D, xx SDL_CONTROLLER_AXIS_LEFTX);
+        // TODO(Sleepster): make a better way of indexing into these 
+        move_up    := game_action_set_action(input_manager, xx SDL_SCANCODE_W,        xx SDL_CONTROLLER_AXIS_LEFTX);
+        move_left  := game_action_set_action(input_manager, xx SDL_SCANCODE_A,        xx SDL_CONTROLLER_AXIS_LEFTX);
+        move_down  := game_action_set_action(input_manager, xx SDL_SCANCODE_S,        xx SDL_CONTROLLER_AXIS_LEFTX);
+        move_right := game_action_set_action(input_manager, xx SDL_SCANCODE_D,        xx SDL_CONTROLLER_AXIS_LEFTX);
+        interact   := game_action_set_action(input_manager, xx SDL_SCANCODE_E,        xx SDL_CONTROLLER_BUTTON_A);
+        attack     := game_action_set_action(input_manager, xx SDL_LEFT_MOUSE_BUTTON, xx SDL_CONTROLLER_BUTTON_X);
 
         array_add(*input_manager.game_actions, *move_up);
         array_add(*input_manager.game_actions, *move_left);
         array_add(*input_manager.game_actions, *move_down);
         array_add(*input_manager.game_actions, *move_right);
+        array_add(*input_manager.game_actions, *interact);
+        array_add(*input_manager.game_actions, *attack);
+
+        // TODO(Sleepster): Keep an eye on performance with this... should be fine, but you never know 
+        entity_setup_table[entity_archetype.PLAYER]           = setup_entity_player;
+        entity_setup_table[entity_archetype.CRATE]            = setup_entity_build_crate;
+        entity_setup_table[entity_archetype.STONE_NODE]       = setup_entity_stone_node;
+        entity_setup_table[entity_archetype.COAL_NODE]        = setup_entity_coal_node;
+        entity_setup_table[entity_archetype.TREE00]           = setup_entity_tree_00;
+        entity_setup_table[entity_archetype.FURNACE]          = setup_entity_furnace_block;
+        entity_setup_table[entity_archetype.CRAFTING_STATION] = setup_entity_workbench;
+        entity_setup_table[entity_archetype.ITEM_STONE_CHUNK] = setup_entity_item_stone_chunk;
+        entity_setup_table[entity_archetype.ITEM_COAL_CHUNK]  = setup_entity_item_coal_chunk;
+        entity_setup_table[entity_archetype.ITEM_WOOD_CHUNK]  = setup_entity_item_wood_chunk;
 
         player := create_entity(entity_manager);
         setup_entity_player(player);
@@ -198,46 +196,66 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         enemy := create_entity(entity_manager);
         setup_entity_build_crate(enemy);
 
-        for 0..200 - 1
+        for 0..20 - 1
         {
             seed := random_get();
             random_seed(seed);
 
             crate := create_entity(entity_manager);
             setup_entity_build_crate(crate);
-            crate.position = .{random_get_within_range(*context.random_state, -1000.0, 1000.0), random_get_within_range(*context.random_state, -1000.0, 1000.0)};
+            crate.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
             crate.position = round_to_nearest_tile(crate.position);
         }
 
         furnace := create_entity(entity_manager);
         setup_entity_furnace_block(furnace);
-        furnace.position = .{random_get_within_range(*context.random_state, -1000.0, 1000.0), random_get_within_range(*context.random_state, -1000.0, 1000.0)};
+        furnace.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
         furnace.position = round_to_nearest_tile(furnace.position);
 
         game_state.primary_game_camera = game_camera_create(0.1, 0); 
         game_state.is_initialized = true;
 
-        for 0..200 - 1
+        for 0..20 - 1
         {
             seed := random_get();
             random_seed(seed);
 
             stone_node := create_entity(entity_manager);
             setup_entity_stone_node(stone_node);
-            stone_node.position = .{random_get_within_range(*context.random_state, -1000.0, 1000.0), random_get_within_range(*context.random_state, -1000.0, 1000.0)};
+            stone_node.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
             stone_node.position = round_to_nearest_tile(stone_node.position);
         }
 
-        for 0..200 - 1
+        for 0..20 - 1
         {
             seed := random_get();
             random_seed(seed);
 
             coal_node := create_entity(entity_manager);
             setup_entity_coal_node(coal_node);
-            coal_node.position = .{random_get_within_range(*context.random_state, -1000.0, 1000.0), random_get_within_range(*context.random_state, -1000.0, 1000.0)};
+            coal_node.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
             coal_node.position = round_to_nearest_tile(coal_node.position);
         }
+
+        for 0..20 - 1
+        {
+            seed := random_get();
+            random_seed(seed);
+
+            tree_00 := create_entity(entity_manager);
+            setup_entity_tree_00(tree_00);
+            tree_00.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
+            tree_00.position = round_to_nearest_tile(tree_00.position);
+        }
+
+        crafting_station := create_entity(entity_manager);
+        setup_entity_workbench(crafting_station);
+        crafting_station.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
+        crafting_station.position = round_to_nearest_tile(crafting_station.position);
+    }
+    if is_key_pressed(input_manager, xx SDL_SCANCODE_COMMA)
+    {
+        reload_asset_pointers(asset_manager);
     }
 
     // NOTE(Sleepster): INIT WORLD FRAME
@@ -292,6 +310,15 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     draw_frame.active_view_matrix       = *world_frame.world_view;
     draw_frame.active_projection_matrix = *world_frame.world_projection;
 
+    world_frame.world_space_mouse  = transform_mouse_coords(draw_frame.active_view_matrix,
+                                                            draw_frame.active_projection_matrix,
+                                                            input_manager.keyboard_input.current_mouse_pos,
+                                                            window_data.window_size);
+    world_frame.screen_space_mouse = transform_mouse_coords(world_frame.screen_view,
+                                                            world_frame.screen_projection,
+                                                            input_manager.keyboard_input.current_mouse_pos,
+                                                            window_data.window_size);
+
     // NOTE(Sleepster): UPDATE ENTITY COLLISION BOUNDING BOXES
     {
         for index: 0..entity_manager.active_entity_counter
@@ -305,9 +332,13 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         }
     }
 
-    // NOTE(Sleepster): WORLD FRAME SELECTED ENTITY
+    // NOTE(Sleepster): CHECK FOR COLLISIONS
     {
-        player        := world_frame.player;
+    }
+
+    // NOTE(Sleepster): WORLD FRAME GET TARGET GRABBABLE ENTITY
+    player := world_frame.player;
+    {
         max_grab_dist := 16.0;
         min_dist: float32 = max_grab_dist;
         closest_entity: *Entity;
@@ -327,17 +358,17 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         }
         if closest_entity
         {
-            world_frame.selected_entity = closest_entity;
+            world_frame.entity_to_grab = closest_entity;
         }
 
         // NOTE(Sleepster): PLAYER GRAB
-        if is_key_pressed(game_state.input_manager, xx SDL_SCANCODE_E)
+        if game_action_is_pressed(game_state.input_manager, *input_manager.game_actions[INTERACT])
         {
             if !player.attached_entity
             {
-                if world_frame.selected_entity && distance(player.position, world_frame.selected_entity.position) < max_grab_dist
+                if world_frame.entity_to_grab && distance(player.position, world_frame.entity_to_grab.position) < max_grab_dist
                 {
-                    player.attached_entity = world_frame.selected_entity;
+                    player.attached_entity = world_frame.entity_to_grab;
                 }
             }
             else
@@ -388,6 +419,98 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         }
     }
 
+    // NOTE(Sleepster): WORLD FRAME GET HOVERED OVER ENTITY
+    {
+        reach_dist     := 14.0;
+        min_dist       := reach_dist;
+
+        closest_targetable_entity: *Entity;
+        for index: 0..entity_manager.active_entity_counter
+        {
+            entity := *entity_manager.entities[index];
+            if (entity.flags & xx IS_VALID)     &&
+              !(entity.flags & xx IS_GRABBABLE) &&
+              !(entity.flags & xx IS_ITEM)      &&
+               (entity.archetype != xx entity_archetype.PLAYER)
+            {
+                dist := distance(player.position, entity.position);
+                if dist <= min_dist
+                {
+                    min_dist = dist;
+                    closest_targetable_entity = entity;
+                }
+            }
+        }
+        if closest_targetable_entity
+        {
+            distance_from_cursor := distance(world_frame.world_space_mouse, closest_targetable_entity.position);
+            if distance_from_cursor <= reach_dist
+            {
+                world_frame.active_hovered_entity = closest_targetable_entity;
+            }
+        }
+    }
+
+    // NOTE(Sleepster): DAMAGE AND DESTROY TARGET ENTITY
+    {
+        if world_frame.active_hovered_entity
+        {
+            using world_frame;
+            if active_hovered_entity.flags & xx CAN_BE_DAMAGED
+            {
+                if game_action_is_pressed(input_manager, *input_manager.game_actions[ATTACK])
+                {
+                    active_hovered_entity.current_health -= 1;
+                }
+            }
+        }
+    }
+
+    // NOTE(Sleepster): UPDATE ENTITY LIFE STATUS
+    {
+        for index: 0..entity_manager.active_entity_counter
+        {
+            entity := *entity_manager.entities[index];
+            if (entity.flags & xx IS_VALID) && (entity.flags & xx CAN_BE_DAMAGED)
+            {
+                if entity.current_health <= 0
+                {
+                    entity.flags |= xx IS_DEAD;
+                }
+            }
+        }
+    }
+
+    // NOTE(Sleepster): HANDLE DEAD ENTITIES 
+    {
+        for index: 0..entity_manager.active_entity_counter
+        {
+            entity := *entity_manager.entities[index];
+            if(entity.flags & xx IS_VALID) && (entity.flags & xx IS_DEAD)
+            {
+                if entity.flags & xx DROPS_ITEMS_ON_DEATH
+                {
+                    for drop: entity.drop_list
+                    {
+                        for 0..drop.amount_to_drop
+                        {
+                            random_drop_position := (Vector2).{random_get_within_range(*context.random_state, -entity.max_drop_radius, entity.max_drop_radius),
+                                                               random_get_within_range(*context.random_state, -entity.max_drop_radius, entity.max_drop_radius)};
+
+                            new_entity         := spawn_entity(entity_manager, drop.dropped_entity);
+                            new_entity.position = entity.position + random_drop_position;
+
+                            destroy_entity(entity);
+                        }
+                    }
+                }
+                else
+                {
+                    destroy_entity(entity);
+                }
+            }
+        }
+    }
 
     // NOTE(Sleepster): DEBUG TILES
     push_render_layer(draw_frame, 8);
@@ -412,7 +535,6 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
             }
         }
     }
-
     // NOTE(Sleepster): ENTITY RENDERING 
     push_render_layer(draw_frame, 10);
     for entity_index: 0..game_state.entity_manager.active_entity_counter
@@ -425,6 +547,12 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
                          entity.render_size,
                          entity.sprite_data,
                          entity.draw_color);
+            if entity == world_frame.active_hovered_entity
+            {
+                push_render_layer(draw_frame, 9);
+                draw_texture(draw_frame, entity.position, entity.render_size, sprite_textureless, FADED_GRAY);
+            }
+            push_render_layer(draw_frame, 10);
         }
     }
 
@@ -432,7 +560,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     draw_frame.active_projection_matrix = *world_frame.screen_projection;
 
     push_render_layer(draw_frame, 1);
-    draw_text(draw_frame, game_font, "This is a test of drawing the correct text", .{400, -100}, asset_manager.small_font_size, WHITE);
+    draw_text(draw_frame, game_font, "This is a test of drawing the correct text, Ͽ", .{400, -100}, asset_manager.small_font_size, WHITE);
     push_render_layer(draw_frame, 0);
 }
 
@@ -447,12 +575,23 @@ sprite_stone_node     : *Atlas_Sprite;
 sprite_coal_node      : *Atlas_Sprite;  
 sprite_tree_00        : *Atlas_Sprite;
 
+sprite_stone_chunk    : *Atlas_Sprite;
+sprite_coal_chunk     : *Atlas_Sprite;
+sprite_wood_chunk     : *Atlas_Sprite;
+
 game_font             : *Dynamic_Render_Font;
 
 WHITE :: (Vector4).{1, 1, 1, 1};
 RED   :: (Vector4).{1, 0, 0, 1};
 GREEN :: (Vector4).{0, 1, 0, 1};
 BLUE  :: (Vector4).{0, 0, 1, 1};
+
+LIGHT_GRAY :: (Vector4).{0.8, 0.8, 0.8, 1.0};
+
+// TODO(Sleepster): There is currently a bug with the transparency
+//                  setup. Either "radix_sort" is not actually sorting properly, or the
+//                  indices into the array are wrong. Either way, it's bugged. Fix it.
+FADED_GRAY :: (Vector4).{0.7, 0.7, 0.7, 0.05};
 
 MAX_ENTITIES :: 1000;
 
@@ -464,6 +603,9 @@ tick_rate  :: 1.0/60.0;
 
 map_color1: Vector4;
 map_color2: Vector4;
+
+// TODO(Sleepster): Keep an eye on performance with this... should be fine, but you never know 
+entity_setup_table: [entity_archetype.ARCH_COUNT](entity: *Entity);
 
 #load "game_camera.jai";
 #load "game_entity.jai";

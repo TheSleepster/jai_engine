@@ -338,6 +338,7 @@ test_render :: (render_state : *Render_State, draw_frame_data : *Draw_Frame_Data
 
     glEnable(GL_BLEND);        
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
 
     // TODO(Sleepster): maybe we can use multidraw? Stuff each one of
     // these ordered calls into a draw_indirect. Enable blending and

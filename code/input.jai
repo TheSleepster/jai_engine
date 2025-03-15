@@ -233,6 +233,36 @@ consume_key_down :: inline (input_manager: *Input_Manager, key_index: s32)
 ////////////////////
 // CONTROLLER STUFF
 ////////////////////
+
+/*
+typedef enum SDL_GameControllerButton
+{
+    SDL_CONTROLLER_BUTTON_INVALID = -1,
+    SDL_CONTROLLER_BUTTON_A,
+    SDL_CONTROLLER_BUTTON_B,
+    SDL_CONTROLLER_BUTTON_X,
+    SDL_CONTROLLER_BUTTON_Y,
+    SDL_CONTROLLER_BUTTON_BACK,
+    SDL_CONTROLLER_BUTTON_GUIDE,
+    SDL_CONTROLLER_BUTTON_START,
+    SDL_CONTROLLER_BUTTON_LEFTSTICK,
+    SDL_CONTROLLER_BUTTON_RIGHTSTICK,
+    SDL_CONTROLLER_BUTTON_LEFTSHOULDER,
+    SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
+    SDL_CONTROLLER_BUTTON_DPAD_UP,
+    SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+    SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+    SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+    SDL_CONTROLLER_BUTTON_MISC1,    /* Xbox Series X share button, PS5 microphone button, Nintendo Switch Pro capture button, Amazon Luna microphone button */
+    SDL_CONTROLLER_BUTTON_PADDLE1,  /* Xbox Elite paddle P1 (upper left, facing the back) */
+    SDL_CONTROLLER_BUTTON_PADDLE2,  /* Xbox Elite paddle P3 (upper right, facing the back) */
+    SDL_CONTROLLER_BUTTON_PADDLE3,  /* Xbox Elite paddle P2 (lower left, facing the back) */
+    SDL_CONTROLLER_BUTTON_PADDLE4,  /* Xbox Elite paddle P4 (lower right, facing the back) */
+    SDL_CONTROLLER_BUTTON_TOUCHPAD, /* PS4/PS5 touchpad button */
+    SDL_CONTROLLER_BUTTON_MAX
+} SDL_GameControllerButton;
+*/
+
 SDL_Controller_Data :: struct
 {
     gamepad_data : *SDL_GameController;
@@ -334,6 +364,12 @@ game_action_set_action :: inline (input_manager: *Input_Manager, key_index: s32,
     result.action_button = button_index;
 
     return result;
+}
+
+game_action_add_action :: inline (input_manager: *Input_Manager, key_index: s32, button_index: s32)
+{
+    action := game_action_set_action(input_manager, key_index, button_index);
+    array_add(*input_manager.game_actions, *action);
 }
 
 game_action_is_pressed :: inline (input_manager: *Input_Manager, action: *Game_Action) -> bool
