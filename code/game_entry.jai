@@ -1,7 +1,11 @@
 Game_State :: struct
 {
+    game_arena            :  Memory_Arena;
+    
     input_manager         : *Input_Manager;
     entity_manager        : *Entity_Manager;
+    game_data             :  Game_Data;
+    
     input_axis            :  Vector2;
 
     primary_game_camera   :  Game_Camera;
@@ -153,10 +157,15 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     input_manager   :=  game_state.input_manager;
     entity_manager  :=  game_state.entity_manager;
     game_camera     := *game_state.primary_game_camera;
+    game_data       := *game_state.game_data;
 
     if !game_state.is_initialized
     {
         reload_asset_pointers(asset_manager);
+        init_game_data(game_data);
+
+        reset_arena(*game_state.game_arena);
+        entity_manager.entities = push_array(*game_state.game_arena, Entity, MAX_ENTITIES);
 
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
@@ -183,32 +192,26 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         entity_setup_table[entity_archetype.COAL_NODE]        = setup_entity_coal_node;
         entity_setup_table[entity_archetype.TREE00]           = setup_entity_tree_00;
         entity_setup_table[entity_archetype.FURNACE]          = setup_entity_furnace_block;
-        entity_setup_table[entity_archetype.CRAFTING_STATION] = setup_entity_workbench;
+        entity_setup_table[entity_archetype.WORKBENCH]        = setup_entity_workbench;
         entity_setup_table[entity_archetype.ITEM_STONE_CHUNK] = setup_entity_item_stone_chunk;
         entity_setup_table[entity_archetype.ITEM_COAL_CHUNK]  = setup_entity_item_coal_chunk;
         entity_setup_table[entity_archetype.ITEM_WOOD_CHUNK]  = setup_entity_item_wood_chunk;
 
-        player := create_entity(entity_manager);
-        setup_entity_player(player);
+        player := spawn_entity(game_state, Entity_ID.entity_player);
         player.position.x = -30;
         player.speed      =  0.8;
-
-        enemy := create_entity(entity_manager);
-        setup_entity_build_crate(enemy);
 
         for 0..20 - 1
         {
             seed := random_get();
             random_seed(seed);
 
-            crate := create_entity(entity_manager);
-            setup_entity_build_crate(crate);
+            crate := spawn_entity(game_state, Entity_ID.entity_build_crate);
             crate.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
             crate.position = round_to_nearest_tile(crate.position);
         }
 
-        furnace := create_entity(entity_manager);
-        setup_entity_furnace_block(furnace);
+        furnace := spawn_entity(game_state, Entity_ID.entity_furnace);
         furnace.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
         furnace.position = round_to_nearest_tile(furnace.position);
 
@@ -217,39 +220,26 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         for 0..20 - 1
         {
-            seed := random_get();
-            random_seed(seed);
-
-            stone_node := create_entity(entity_manager);
-            setup_entity_stone_node(stone_node);
+            stone_node := spawn_entity(game_state, Entity_ID.entity_stone_node);
             stone_node.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
             stone_node.position = round_to_nearest_tile(stone_node.position);
         }
 
         for 0..20 - 1
         {
-            seed := random_get();
-            random_seed(seed);
-
-            coal_node := create_entity(entity_manager);
-            setup_entity_coal_node(coal_node);
+            coal_node := spawn_entity(game_state, Entity_ID.entity_coal_node);
             coal_node.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
             coal_node.position = round_to_nearest_tile(coal_node.position);
         }
 
         for 0..20 - 1
         {
-            seed := random_get();
-            random_seed(seed);
-
-            tree_00 := create_entity(entity_manager);
-            setup_entity_tree_00(tree_00);
+            tree_00 := spawn_entity(game_state, Entity_ID.entity_tree00);
             tree_00.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
             tree_00.position = round_to_nearest_tile(tree_00.position);
         }
 
-        crafting_station := create_entity(entity_manager);
-        setup_entity_workbench(crafting_station);
+        crafting_station := spawn_entity(game_state, Entity_ID.entity_workbench);
         crafting_station.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
         crafting_station.position = round_to_nearest_tile(crafting_station.position);
     }
@@ -481,6 +471,18 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         }
     }
 
+    // NOTE(Sleepster): HANDLE ITEMS
+    {
+        for index: 0..entity_manager.active_entity_counter
+        {
+            entity := *entity_manager.entities[index];
+            if (entity.flags & xx IS_VALID) &&
+               (entity.flags & xx IS_ITEM)
+            {
+            }
+        }
+    }
+
     // NOTE(Sleepster): HANDLE DEAD ENTITIES 
     {
         for index: 0..entity_manager.active_entity_counter
@@ -497,7 +499,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
                             random_drop_position := (Vector2).{random_get_within_range(*context.random_state, -entity.max_drop_radius, entity.max_drop_radius),
                                                                random_get_within_range(*context.random_state, -entity.max_drop_radius, entity.max_drop_radius)};
 
-                            new_entity         := spawn_entity(entity_manager, drop.dropped_entity);
+                            new_entity := spawn_item(game_state, drop.dropped_item);
                             new_entity.position = entity.position + random_drop_position;
 
                             destroy_entity(entity);
@@ -560,7 +562,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     draw_frame.active_projection_matrix = *world_frame.screen_projection;
 
     push_render_layer(draw_frame, 1);
-    draw_text(draw_frame, game_font, "This is a test of drawing the correct text, Ͽ", .{400, -100}, asset_manager.small_font_size, WHITE);
+    draw_text(draw_frame, game_font, "This is a test of drawing the correct text", .{400, -100}, asset_manager.small_font_size, WHITE);
     push_render_layer(draw_frame, 0);
 }
 
@@ -610,3 +612,4 @@ entity_setup_table: [entity_archetype.ARCH_COUNT](entity: *Entity);
 #load "game_camera.jai";
 #load "game_entity.jai";
 #load "game_aabb.jai";
+#load "game_data.jai";

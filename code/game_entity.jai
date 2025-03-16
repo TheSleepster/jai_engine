@@ -1,7 +1,7 @@
 Entity_Manager :: struct
 {
     active_entity_counter : u32;
-    entities              : [MAX_ENTITIES]Entity;
+    entities              : []Entity;
 };
 
 using entity_flags :: enum u64
@@ -25,7 +25,7 @@ entity_archetype :: enum
     COAL_NODE;
     TREE00;
     FURNACE;
-    CRAFTING_STATION;
+    WORKBENCH;
 
     ITEM_STONE_CHUNK;
     ITEM_COAL_CHUNK;
@@ -35,8 +35,14 @@ entity_archetype :: enum
 
 Entity_Drop :: struct
 {
-    dropped_entity : entity_archetype;
+    dropped_item   : Item_ID; 
     amount_to_drop : u32;
+};
+
+Entity_Inventory_Slot :: struct
+{
+    item_in_slot : Item_ID;
+    quantity     : u32;
 };
 
 Entity :: struct
@@ -50,7 +56,7 @@ Entity :: struct
     speed           :  float32;
     friction        :  float32;
     
-    render_size     :  Vector2;
+    render_size     :  iVector2;
     draw_color      :  Vector4;
     sprite_data     : *Atlas_Sprite;
 
@@ -62,8 +68,13 @@ Entity :: struct
     current_health  :  s32;
     max_health      :  s32;
 
-    drop_list       : [..] Entity_Drop;
-    max_drop_radius : float32;
+    drop_list       :  []Entity_Drop;
+    max_drop_radius :  float32;
+    pickup_delay    :  float32;
+
+    inventory       :  [20]Entity_Inventory_Slot;
+    used_slots      :  u32;
+    max_slots       :  u32 = 20;
 };
 
 create_entity :: (entity_manager: *Entity_Manager) -> *Entity
@@ -115,7 +126,7 @@ setup_entity_player :: (player: *Entity)
     player.speed          = 10.0;
     player.friction       = 0.1;
     player.draw_color     = WHITE;
-    player.render_size    = (Vector2).{xx sprite_player.atlas_size.x, xx sprite_player.atlas_size.y};
+    player.render_size    = sprite_player.atlas_size;
     player.flags         |= xx CAN_BE_DAMAGED|CAN_PICKUP_ITEMS;
     player.bounding_box   = range_v2_create(player.position, player.position + player.render_size);
     player.max_health     = 10;
@@ -127,7 +138,7 @@ setup_entity_build_crate :: (entity: *Entity)
     entity.sprite_data    = sprite_base_block;
     entity.archetype      = xx entity_archetype.CRATE;
     entity.draw_color     = WHITE;
-    entity.render_size    = (Vector2).{xx sprite_base_block.atlas_size.x, xx sprite_base_block.atlas_size.y};
+    entity.render_size    = sprite_base_block.atlas_size;
     entity.flags         |= xx IS_GRABBABLE| xx CAN_BE_DAMAGED;
     entity.bounding_box   = range_v2_create(entity.position, entity.position + entity.render_size);
     entity.max_health     = 10;
@@ -139,7 +150,7 @@ setup_entity_furnace_block :: (entity: *Entity)
     entity.sprite_data    = sprite_furnace;
     entity.archetype      = xx entity_archetype.FURNACE;
     entity.draw_color     = WHITE;
-    entity.render_size    = (Vector2).{xx sprite_furnace.atlas_size.x, xx sprite_furnace.atlas_size.y};;
+    entity.render_size    = sprite_furnace.atlas_size;
     entity.flags         |= xx IS_GRABBABLE| xx CAN_BE_DAMAGED;
     entity.bounding_box   = range_v2_create(entity.position, entity.position + entity.render_size);
     entity.max_health     = 30;
@@ -151,18 +162,12 @@ setup_entity_stone_node :: (entity: *Entity)
     entity.sprite_data     = sprite_stone_node;
     entity.archetype       = xx entity_archetype.STONE_NODE;
     entity.draw_color      = WHITE;
-    entity.render_size    = (Vector2).{xx sprite_stone_node.atlas_size.x, xx sprite_stone_node.atlas_size.y};;
+    entity.render_size    = sprite_stone_node.atlas_size;
     entity.flags          |= xx CAN_BE_DAMAGED|DROPS_ITEMS_ON_DEATH;
     entity.bounding_box    = range_v2_create(entity.position, entity.position + entity.render_size);
     entity.max_health      = 5;
     entity.current_health  = entity.max_health;
     entity.max_drop_radius = 5;
-
-    item_drop: Entity_Drop;
-    item_drop.dropped_entity = xx entity_archetype.ITEM_STONE_CHUNK;
-    item_drop.amount_to_drop = 2;
-
-    array_add(*entity.drop_list, item_drop);
 }
 
 setup_entity_coal_node :: (entity: *Entity)
@@ -170,18 +175,12 @@ setup_entity_coal_node :: (entity: *Entity)
     entity.sprite_data    = sprite_coal_node;
     entity.archetype      = xx entity_archetype.COAL_NODE;
     entity.draw_color     = WHITE;
-    entity.render_size    = (Vector2).{xx sprite_coal_node.atlas_size.x, xx sprite_coal_node.atlas_size.y};;
+    entity.render_size    = sprite_coal_node.atlas_size;
     entity.flags         |= xx CAN_BE_DAMAGED|DROPS_ITEMS_ON_DEATH;
     entity.bounding_box   = range_v2_create(entity.position, entity.position + entity.render_size);
     entity.max_health     = 5;
     entity.current_health = entity.max_health;
     entity.max_drop_radius = 5;
-
-    item_drop: Entity_Drop;
-    item_drop.dropped_entity = xx entity_archetype.ITEM_COAL_CHUNK;
-    item_drop.amount_to_drop = 1;
-
-    array_add(*entity.drop_list, item_drop);
 }
 
 setup_entity_tree_00 :: (entity: *Entity)
@@ -189,26 +188,20 @@ setup_entity_tree_00 :: (entity: *Entity)
     entity.sprite_data    = sprite_tree_00;
     entity.archetype      = xx entity_archetype.TREE00;
     entity.draw_color     = WHITE;
-    entity.render_size    = (Vector2).{xx sprite_tree_00.atlas_size.x, xx sprite_tree_00.atlas_size.y};;
+    entity.render_size    = sprite_tree_00.atlas_size;
     entity.flags         |= xx CAN_BE_DAMAGED|DROPS_ITEMS_ON_DEATH;
     entity.bounding_box   = range_v2_create(entity.position, entity.position + entity.render_size);
     entity.max_health     = 5;
     entity.current_health = entity.max_health;
     entity.max_drop_radius = 5;
-
-    item_drop: Entity_Drop;
-    item_drop.dropped_entity = xx entity_archetype.ITEM_WOOD_CHUNK;
-    item_drop.amount_to_drop = 1;
-
-    array_add(*entity.drop_list, item_drop);
 }
 
 setup_entity_workbench :: (entity: *Entity)
 {
     entity.sprite_data    = sprite_workbench;
-    entity.archetype      = xx entity_archetype.CRAFTING_STATION;
+    entity.archetype      = xx entity_archetype.WORKBENCH;
     entity.draw_color     = WHITE;
-    entity.render_size    = (Vector2).{xx sprite_workbench.atlas_size.x, xx sprite_workbench.atlas_size.y};;
+    entity.render_size    = sprite_workbench.atlas_size;
     entity.flags         |= xx IS_GRABBABLE;
     entity.bounding_box   = range_v2_create(entity.position, entity.position + entity.render_size);
     entity.max_health     = 10;
@@ -220,7 +213,7 @@ setup_entity_item_stone_chunk :: (entity: *Entity)
     entity.sprite_data    = sprite_stone_chunk;
     entity.archetype      = xx entity_archetype.ITEM_STONE_CHUNK;
     entity.draw_color     = WHITE;
-    entity.render_size    = (Vector2).{xx sprite_stone_chunk.atlas_size.x, xx sprite_stone_chunk.atlas_size.y};;
+    entity.render_size    = sprite_stone_chunk.atlas_size;
     entity.flags         |= xx IS_ITEM;
     entity.bounding_box   = range_v2_create(entity.position, entity.position + entity.render_size);
 }
@@ -230,7 +223,7 @@ setup_entity_item_coal_chunk :: (entity: *Entity)
     entity.sprite_data    = sprite_coal_chunk;
     entity.archetype      = xx entity_archetype.ITEM_COAL_CHUNK;
     entity.draw_color     = WHITE;
-    entity.render_size    = (Vector2).{xx sprite_coal_chunk.atlas_size.x, xx sprite_coal_chunk.atlas_size.y};;
+    entity.render_size    = sprite_coal_chunk.atlas_size;
     entity.flags         |= xx IS_ITEM;
     entity.bounding_box   = range_v2_create(entity.position, entity.position + entity.render_size);
 }
@@ -240,7 +233,7 @@ setup_entity_item_wood_chunk :: (entity: *Entity)
     entity.sprite_data    = sprite_wood_chunk;
     entity.archetype      = xx entity_archetype.ITEM_WOOD_CHUNK;
     entity.draw_color     = WHITE;
-    entity.render_size    = (Vector2).{xx sprite_wood_chunk.atlas_size.x, xx sprite_wood_chunk.atlas_size.y};;
+    entity.render_size    = sprite_wood_chunk.atlas_size;
     entity.flags         |= xx IS_ITEM;
     entity.bounding_box   = range_v2_create(entity.position, entity.position + entity.render_size);
 }

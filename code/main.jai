@@ -174,6 +174,11 @@ main :: ()
                     draw_frame_data.vertex_buffer_ptr     = *draw_frame_data.primary_vertex_buffer[0];
                 }
 
+                // GAME MEMORY 
+                {
+                    game_state.game_arena = init_arena(*game_memory.permanent_storage, xx MB(200));
+                }
+
                 game_state.input_manager  = *input_manager;
                 game_state.entity_manager = *entity_manager;
             }

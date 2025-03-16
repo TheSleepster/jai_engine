@@ -65,6 +65,27 @@ hex_to_rgba :: (hex: u32) -> Vector4
     return color;
 }
 
+////////////////////
+// VECTOR OPERATORS
+////////////////////
+operator + :: (A: Vector2, B: iVector2) -> Vector2
+{
+    result: Vector2 = ---;
+    result.x = A.x + cast(float32)B.x;
+    result.y = A.y + cast(float32)B.y;
+
+    return result;
+}
+
+operator + :: (A: iVector2, B: Vector2) -> iVector2
+{
+    result: iVector2 = ---;
+    result.x = A.x + cast(s32)B.x;
+    result.y = A.y + cast(s32)B.y;
+
+    return result;
+}
+
 ////////////////
 // MATRIX STUFF
 ////////////////

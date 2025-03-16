@@ -13,7 +13,7 @@ Render_Quad :: struct
     };
     
     position            : Vector2;
-    render_size         : Vector2;
+    render_size         : iVector2;
     rotation            : float;
     render_color        : Vector4;
     z_layer             : s32;
@@ -52,7 +52,7 @@ add_texture_to_draw_frame_list :: (draw_frame: *Draw_Frame_Data, texture_id: u32
 // NOTE(Sleepster): Also, make this defualt color to white, and the render_size to .{8, 8}
 create_draw_quad :: (draw_frame          : *Draw_Frame_Data,
                      position            : Vector2,
-                     render_size         : Vector2,
+                     render_size         : iVector2,
                      model_matrix        : Matrix4,
                      required_texture_id : u32,
                      atlas_offset        : iVector2,
@@ -152,7 +152,7 @@ draw_quad_in_view :: (draw_frame : *Draw_Frame_Data, quad : *Render_Quad) -> *Re
 
 draw_quad :: (draw_frame          : *Draw_Frame_Data,
               position            : Vector2,
-              render_size         : Vector2,
+              render_size         : iVector2,
               required_texture_id : u32,
               atlas_offset        : iVector2,
               sprite_size         : iVector2,
@@ -167,7 +167,7 @@ draw_quad :: (draw_frame          : *Draw_Frame_Data,
 
 draw_rect :: (draw_frame          : *Draw_Frame_Data,
               position            : Vector2,
-              render_size         : Vector2,
+              render_size         : iVector2,
               rotation            : float,
               render_color        : Vector4) -> *Render_Quad
 {
@@ -179,7 +179,7 @@ draw_rect :: (draw_frame          : *Draw_Frame_Data,
 
 draw_texture :: (draw_frame    : *Draw_Frame_Data,
                  position      :  Vector2,
-                 render_size   :  Vector2,
+                 render_size   :  iVector2,
                  sprite        : *Atlas_Sprite,
                  draw_color    :  Vector4) -> *Render_Quad
 {
@@ -211,7 +211,7 @@ draw_quad_xform :: (draw_frame    : *Draw_Frame_Data,
     world_position : Vector4 = xform.v[3];
     render_quad := create_draw_quad(draw_frame,
                                     world_position.xy,
-                                    .{1.0, 1.0},
+                                    .{1, 1},
                                     xform,
                                     sprite.atlas_texture.texID,
                                     sprite.atlas_position,
