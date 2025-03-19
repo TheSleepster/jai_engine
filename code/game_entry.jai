@@ -1,6 +1,7 @@
 Game_State :: struct
 {
     game_arena            :  Memory_Arena;
+    WFC_arena             :  Memory_Arena;
     
     input_manager         : *Input_Manager;
     entity_manager        : *Entity_Manager;
@@ -167,6 +168,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         reset_arena(*game_state.game_arena);
         entity_manager.entities = push_array(*game_state.game_arena, Entity, MAX_ENTITIES);
 
+        game_state.WFC_arena = init_sub_arena(*game_state.game_arena, xx KB(200));
+
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
 
@@ -185,18 +188,6 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         array_add(*input_manager.game_actions, *interact);
         array_add(*input_manager.game_actions, *attack);
 
-        // TODO(Sleepster): Keep an eye on performance with this... should be fine, but you never know 
-        entity_setup_table[entity_archetype.PLAYER]           = setup_entity_player;
-        entity_setup_table[entity_archetype.CRATE]            = setup_entity_build_crate;
-        entity_setup_table[entity_archetype.STONE_NODE]       = setup_entity_stone_node;
-        entity_setup_table[entity_archetype.COAL_NODE]        = setup_entity_coal_node;
-        entity_setup_table[entity_archetype.TREE00]           = setup_entity_tree_00;
-        entity_setup_table[entity_archetype.FURNACE]          = setup_entity_furnace_block;
-        entity_setup_table[entity_archetype.WORKBENCH]        = setup_entity_workbench;
-        entity_setup_table[entity_archetype.ITEM_STONE_CHUNK] = setup_entity_item_stone_chunk;
-        entity_setup_table[entity_archetype.ITEM_COAL_CHUNK]  = setup_entity_item_coal_chunk;
-        entity_setup_table[entity_archetype.ITEM_WOOD_CHUNK]  = setup_entity_item_wood_chunk;
-
         player := spawn_entity(game_state, Entity_ID.entity_player);
         player.position.x = -30;
         player.speed      =  0.8;
@@ -214,9 +205,6 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         furnace := spawn_entity(game_state, Entity_ID.entity_furnace);
         furnace.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
         furnace.position = round_to_nearest_tile(furnace.position);
-
-        game_state.primary_game_camera = game_camera_create(0.1, 0); 
-        game_state.is_initialized = true;
 
         for 0..20 - 1
         {
@@ -242,6 +230,9 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         crafting_station := spawn_entity(game_state, Entity_ID.entity_workbench);
         crafting_station.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
         crafting_station.position = round_to_nearest_tile(crafting_station.position);
+
+        game_state.is_initialized = true;
+        game_state.primary_game_camera = game_camera_create(0.1, 0); 
     }
     if is_key_pressed(input_manager, xx SDL_SCANCODE_COMMA)
     {
@@ -328,6 +319,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
     // NOTE(Sleepster): WORLD FRAME GET TARGET GRABBABLE ENTITY
     player := world_frame.player;
+    player.max_slots = 20;
     {
         max_grab_dist := 16.0;
         min_dist: float32 = max_grab_dist;
@@ -479,6 +471,49 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
             if (entity.flags & xx IS_VALID) &&
                (entity.flags & xx IS_ITEM)
             {
+                if entity.pickup_delay && entity.pickup_timer > 0
+                {
+                    entity.pickup_timer -= 0.001;
+                }
+
+                if entity.pickup_timer <= 0
+                {
+                    entity.flags |= xx CAN_BE_PICKED_UP;
+                }
+            }
+        }
+    }
+
+    // NOTE(Sleepster): PICKUP ITEMS IN RANGE
+    {
+        for index: 0..entity_manager.active_entity_counter
+        {
+            entity := *entity_manager.entities[index];
+            if (entity.flags & xx IS_VALID) &&
+               (entity.flags & xx CAN_BE_PICKED_UP)
+            {
+                player := world_frame.player;
+                max_pickup_dist :: 20;
+                epsilon := 2.0;
+
+                dist := distance(player.position, entity.position);
+                if dist <= max_pickup_dist
+                {
+                    entity.target_position = player.position;
+                    v2_approach(*entity.position, entity.target_position, 0.1, time.delta_time);
+
+                    if dist <= epsilon
+                    {
+                        if add_to_entity_inventory(game_state, player, entity.drop_id, 1)
+                        {
+                            entity.flags |= xx IS_DEAD;
+                        }
+                        else
+                        {
+                            entity.target_position = entity.position;
+                        }
+                    }
+                }
             }
         }
     }
@@ -501,6 +536,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
                             new_entity := spawn_item(game_state, drop.dropped_item);
                             new_entity.position = entity.position + random_drop_position;
+                            new_entity.drop_id = drop.dropped_item;
 
                             destroy_entity(entity);
                         }
@@ -514,29 +550,30 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         }
     }
 
-    // NOTE(Sleepster): DEBUG TILES
-    push_render_layer(draw_frame, 8);
-    tile_offset := world_to_tile_pos(world_frame.player.position);
-    tile_radius := (iVector2).{20, 12};
+    // // NOTE(Sleepster): DEBUG TILES
+    // push_render_layer(draw_frame, 8);
+    // tile_offset := world_to_tile_pos(world_frame.player.position);
+    // tile_radius := (iVector2).{20, 12};
 
-    initial_x := tile_offset.x - tile_radius.x;
-    initial_y := tile_offset.y - tile_radius.y;
-    for x_index: initial_x .. (tile_offset.x + tile_radius.x) - 1
-    {
-        for y_index: initial_y .. (tile_offset.y + tile_radius.y) - 1
-        {
-            tile_x := x_index * cast(float32)TILE_SIZE;
-            tile_y := y_index * cast(float32)TILE_SIZE;
-            if (x_index + cast(s32)(y_index % 2 == 0)) % 2 == 0
-            {
-                draw_texture(draw_frame, .{tile_x, (tile_y - TILE_SIZE) - TILE_SIZE}, .{8, 8}, sprite_textureless, map_color1);
-            }
-            else
-            {
-                draw_texture(draw_frame, .{tile_x, (tile_y - TILE_SIZE) - TILE_SIZE}, .{8, 8}, sprite_textureless, map_color2);
-            }
-        }
-    }
+    // initial_x := tile_offset.x - tile_radius.x;
+    // initial_y := tile_offset.y - tile_radius.y;
+    // for x_index: initial_x .. (tile_offset.x + tile_radius.x) - 1
+    // {
+    //     for y_index: initial_y .. (tile_offset.y + tile_radius.y) - 1
+    //     {
+    //         tile_x := x_index * cast(float32)TILE_SIZE;
+    //         tile_y := y_index * cast(float32)TILE_SIZE;
+    //         if (x_index + cast(s32)(y_index % 2 == 0)) % 2 == 0
+    //         {
+    //             draw_texture(draw_frame, .{tile_x, (tile_y - TILE_SIZE) - TILE_SIZE}, .{8, 8}, sprite_textureless, map_color1);
+    //         }
+    //         else
+    //         {
+    //             draw_texture(draw_frame, .{tile_x, (tile_y - TILE_SIZE) - TILE_SIZE}, .{8, 8}, sprite_textureless, map_color2);
+    //         }
+    //     }
+    // }
+
     // NOTE(Sleepster): ENTITY RENDERING 
     push_render_layer(draw_frame, 10);
     for entity_index: 0..game_state.entity_manager.active_entity_counter
@@ -606,10 +643,8 @@ tick_rate  :: 1.0/60.0;
 map_color1: Vector4;
 map_color2: Vector4;
 
-// TODO(Sleepster): Keep an eye on performance with this... should be fine, but you never know 
-entity_setup_table: [entity_archetype.ARCH_COUNT](entity: *Entity);
-
 #load "game_camera.jai";
 #load "game_entity.jai";
 #load "game_aabb.jai";
 #load "game_data.jai";
+#load "WFC_generation.jai";

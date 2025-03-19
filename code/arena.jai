@@ -133,7 +133,7 @@ restore_from_scratch :: (scratch: *Scratch_Arena)
     arena -= 1;
 }
 
-init_child_arena :: inline (arena: *Memory_Arena, child_capacity: s64, alignment: u32 = 4) -> Memory_Arena
+init_sub_arena :: inline (arena: *Memory_Arena, child_capacity: s64, alignment: u32 = 4) -> Memory_Arena
 {
     result: Memory_Arena;
     result.capacity = child_capacity;

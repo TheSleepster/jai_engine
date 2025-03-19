@@ -1,0 +1,13 @@
+Observation Region
+- Named "Chunk" in this case
+
+  Chunk:
+   * Chunk Width
+   * Chunk height
+   * Base Entropy of each cell before generation
+   * Array of chunk blocks
+
+- Each chunk holds an array of the blocks that want to be generated inside of the chunk
+  Chunk Block:
+   * Current Entropy
+   * Is_Collapsed?

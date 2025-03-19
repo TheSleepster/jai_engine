@@ -198,3 +198,14 @@ mat4_transform :: (matrix: Matrix4, vector: Vector4) -> Vector4
 
     return result;
 }
+
+sin_breathe_normalized :: (time: float32, modifier: float32, min: float32, max: float32) -> float32
+{
+    sin_value := (sin(modifier * 2 * PI * time) + 1.0) / 2.0;
+    return(min + (max - min) * sin_value);
+}
+
+sin_breathe :: (time: float32, modifier: float32) -> float32
+{
+    return(sin((time * PI) / modifier));
+}
