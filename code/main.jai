@@ -12,6 +12,7 @@
 #import "Text_File_Handler";
 #import "Compiler";
 #import "Random";
+#import "Bit_Operations";
 
 // Bitmap loading and saving:
 #import "stb_image";
@@ -104,7 +105,7 @@ reset_frame_data :: (transient_state: *Transient_State, draw_frame: *Draw_Frame_
 
     for *layer: draw_frame.render_layer_info 
     {
-        <<layer = .{};
+        layer.* = .{};
     }
 
     for value: bound_texture_ids

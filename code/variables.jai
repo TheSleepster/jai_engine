@@ -165,7 +165,7 @@ update_variable_data :: (filepath: string)
                 }
                 if !value
                 {
-                    log("[ERROR]: Error at line '%' Expected a space after the name of a varaible...\n", line_number);
+                    log("[ERROR]: Error at line '%' Expected a space after the name of a variable...\n", line_number);
                 }
                 else
                 {

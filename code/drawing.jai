@@ -242,7 +242,6 @@ prepare_string :: (page : *Font_Page, text: string) -> s32
         char.data = temp; 
         char.count = 1;
         
-        codepoint := convert_to_utf32(temp);
         glyph     := get_utf8_glyph(page, temp);
         result    += glyph.glyph_data.atlas_size.x + glyph.advance;
         
@@ -287,6 +286,7 @@ draw_text :: (draw_frame   : *Draw_Frame_Data,
     font_page := asset_get_font_at_size(dynamic_font, font_scale);
     if font_page != null && font_page.is_valid == true
     {
+        // TODO(Sleepster): Hey maybe don't draw spaces and such  
         total_width  : s32 = prepare_string(font_page, text);
         starting_pos := (Vector2).{center_pos.x - (total_width * 0.5), center_pos.y};
         render_pos   := starting_pos;

@@ -112,6 +112,7 @@ Atlas_Sprite :: struct
 {
     atlas_position : iVector2;
     atlas_size     : iVector2;
+    rotation       : float32;
 
     parent_texture : *Texture2D;
     atlas_texture  : *Texture2D;
@@ -398,7 +399,7 @@ asset_load_sound_from_disk :: inline (asset_manager: *Asset_Manager, sound_slot:
     sound := *sound_slot.soundfx;
     if sound.filepath.data != null && sound_slot.slot_state == Asset_Slot_State.UNLOADED 
     {
-        <<sound = load_wav_file(*asset_manager.asset_arena, sound.filepath);
+        sound.* = load_wav_file(*asset_manager.asset_arena, sound.filepath);
         sound.hash_name = key;
         sound_slot.slot_state = Asset_Slot_State.LOADED;
     }
@@ -755,7 +756,7 @@ font_find_next_atlas_line :: inline (page: *Font_Page, width: u32, height: u32) 
     }
 }
 
-copy_glyph_to_page_bitmap :: (face: FT_Face, glyph: *Font_Glyph_Data) -> FT_Face
+copy_glyph_to_page_bitmap :: (face: FT_Face, glyph: *Font_Glyph_Data)
 {
     if glyph.page.bitmap.data.data == null
     {
@@ -806,8 +807,6 @@ copy_glyph_to_page_bitmap :: (face: FT_Face, glyph: *Font_Glyph_Data) -> FT_Face
         texture.width  = bitmap.width;
         texture.height = bitmap.height;
     }
-    
-    return face;
 }
 
 get_utf8_glyph :: (font_page: *Font_Page, char: *u8) -> *Font_Glyph_Data

@@ -121,6 +121,7 @@ create_entity_and_add_to_catalog :: (game_data     : *Game_Data,
 
 init_game_data :: (game_data: *Game_Data)
 {
+    // TODO(Sleepster): Make this stuff load from a file/some files
     no_drops: []Entity_Drop;
     
     create_item_and_add_to_catalog(game_data, Item_ID.item_stone_chunk, entity_archetype.ITEM_STONE_CHUNK, "stone chunk", "This is a stone chunk... You can use it to craft stuff!", sprite_stone_chunk, xx IS_ITEM, .3, 32);

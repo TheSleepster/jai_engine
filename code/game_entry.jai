@@ -144,8 +144,20 @@ reload_asset_pointers :: (asset_manager: *Asset_Manager)
     sprite_stone_chunk = asset_get_sprite(asset_manager, "stone_chunk");
     sprite_coal_chunk  = asset_get_sprite(asset_manager, "coal_chunk");
     sprite_wood_chunk  = asset_get_sprite(asset_manager, "wood_chunk");
+    sprite_WFC_input   = asset_get_sprite(asset_manager, "test_WFC_input");
 
     game_font          = asset_get_font(asset_manager, "LiberationMono-Regular");
+}
+
+subsprite :: (sprite: *Atlas_Sprite, additional_offset: Vector2, additional_size: Vector2 = .{0, 0}) -> Atlas_Sprite
+{
+    result: Atlas_Sprite;
+    result = sprite.*;
+
+    result.atlas_position += additional_offset;
+    result.atlas_size     += additional_size;
+
+    return result;
 }
 
 game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data, draw_frame: *Draw_Frame_Data, time: Time_Data)
@@ -169,6 +181,24 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         entity_manager.entities = push_array(*game_state.game_arena, Entity, MAX_ENTITIES);
 
         game_state.WFC_arena = init_sub_arena(*game_state.game_arena, xx KB(200));
+
+        sprite_array: [4]Atlas_Sprite;
+        rule_array  : [4]WFC_Cell_Ruleset;
+        // BLANK
+        sprite_array[0] = subsprite(sprite_WFC_input, .{0, 0}, .{-16, -16});
+        rule_array[0]   = (WFC_Cell_Ruleset).{left = 0b1000, right = 0b1100, up = 0b1101, down = 0b1011};
+        // PIPE L
+        sprite_array[1] = subsprite(sprite_WFC_input, .{16, 0}, .{-16, -16});
+        rule_array[1]   = (WFC_Cell_Ruleset).{left = 0b1000, right = 0b0111, up = 0b0010, down = 0b1111};
+        // PIPE T
+        sprite_array[2] = subsprite(sprite_WFC_input, .{0, 16}, .{-16, -16});
+        rule_array[2]   = (WFC_Cell_Ruleset).{left = 0b0111, right = 0b0011, up = 0b1101, down = 0b0110};
+        // PIPE LINE  
+        sprite_array[3] = subsprite(sprite_WFC_input, .{16, 16}, .{-16, -16});
+        rule_array[3]   = (WFC_Cell_Ruleset).{left = 0b0111, right = 0b0011, up = 0b1101, down = 0b1111};
+        
+        chunk := WFC_init(*game_state.WFC_arena, 2, sprite_array, rule_array);
+        WFC_generate(*chunk);
 
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
@@ -599,7 +629,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     draw_frame.active_projection_matrix = *world_frame.screen_projection;
 
     push_render_layer(draw_frame, 1);
-    draw_text(draw_frame, game_font, "This is a test of drawing the correct text", .{400, -100}, asset_manager.small_font_size, WHITE);
+    draw_text(draw_frame, game_font, "Testing, some commas and shit", .{400, -100}, asset_manager.small_font_size, WHITE);
     push_render_layer(draw_frame, 0);
 }
 
@@ -617,6 +647,8 @@ sprite_tree_00        : *Atlas_Sprite;
 sprite_stone_chunk    : *Atlas_Sprite;
 sprite_coal_chunk     : *Atlas_Sprite;
 sprite_wood_chunk     : *Atlas_Sprite;
+
+sprite_WFC_input      : *Atlas_Sprite;
 
 game_font             : *Dynamic_Render_Font;
 
