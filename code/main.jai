@@ -13,6 +13,7 @@
 #import "Compiler";
 #import "Random";
 #import "Bit_Operations";
+#import "Machine_X64";
 
 // Bitmap loading and saving:
 #import "stb_image";
@@ -292,13 +293,6 @@ main :: ()
                     //test_sound := play_sound(*sound_manager, "Test2");
                 }
 
-                // TEST HOTLOADING
-                {
-                    // IMPORTANT(Sleepster): WARNING THIS FUNCTION IS SLOW AS BALLS 
-                    hotload_assets(*asset_manager);
-                    hotload_variable_file_data("../data/res/");
-                }
-
                 // GAME UPDATE
                 game_update_and_render(*game_memory, *window_data, *draw_frame_data, time);
                 // GAME UPDATE
@@ -320,6 +314,14 @@ main :: ()
                     print("DELTA_TIME: %ms\n", time.delta_time * 10);
                     accumulator = 0.0;
                 }
+
+                // TEST HOTLOADING
+                {
+                    // IMPORTANT(Sleepster): WARNING THIS FUNCTION IS SLOW AS BALLS 
+                    hotload_assets(*asset_manager);
+                    hotload_variable_file_data("../data/res/");
+                }
+
             }
             DEBUG_report_timing_info();
             SDL_Delay(10);

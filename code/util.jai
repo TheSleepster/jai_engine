@@ -1,3 +1,8 @@
+BIT :: inline (index: u32) -> u32
+{
+    return cast(u32)(1 << index);
+}
+
 compare_s32 :: (a : s32, b : s32) -> int
 {
     return ifx a > b then -1 else 1; 

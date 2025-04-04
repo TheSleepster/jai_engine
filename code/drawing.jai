@@ -297,8 +297,13 @@ draw_text :: (draw_frame   : *Draw_Frame_Data,
             char: string;
             char.data = temp; 
             char.count = 1;
-            
+
             glyph     := get_utf8_glyph(font_page, temp);
+            if temp == " "
+            {
+                render_pos.x += glyph.advance;
+                continue;
+            }
             glyph.glyph_data.atlas_texture = *glyph.page.texture;
             draw_texture(draw_frame,
                          (Vector2).{floor(render_pos.x + glyph.offset_x), floor(render_pos.y + (glyph.ascent - glyph.glyph_data.atlas_size.y))},

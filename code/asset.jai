@@ -118,6 +118,17 @@ Atlas_Sprite :: struct
     atlas_texture  : *Texture2D;
 };
 
+subsprite :: (sprite: *Atlas_Sprite, additional_offset: Vector2, additional_size: Vector2 = .{0, 0}) -> Atlas_Sprite
+{
+    result: Atlas_Sprite;
+    result = sprite.*;
+
+    result.atlas_position += additional_offset;
+    result.atlas_size     += additional_size;
+
+    return result;
+}
+
 
 ///////////////
 // TEXTURES
@@ -208,29 +219,9 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
 
     textures := asset_manager.transient_textures;
 
-    log("UNSORTED\n");
-    for *texture : textures
-    {
-        if texture.filepath.data != null
-        {
-            log("TEXTURE IS: %\n", texture.filepath);
-        }
-    }
-    log("\n\n");
-
     sorted_textures: [64]Texture2D;
     memcpy(sorted_textures.data, textures.data, size_of(Texture2D) * asset_manager.textures_to_insert);
     quick_sort(sorted_textures, (x, y) => compare_s32(x.height, y.height));
-
-    log("SORTED\n");
-    for *texture : sorted_textures
-    {
-        if texture.filepath.data != null
-        {
-            log("TEXTURE IS: %\n", texture.filepath);
-        }
-    }
-    log("\n\n");
 
     x_position : s32 = 0;
     y_position : s32 = 0;
