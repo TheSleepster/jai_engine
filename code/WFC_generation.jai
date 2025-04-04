@@ -32,38 +32,38 @@ WFC_Init :: ()
 {
     // BLACK BACKGROUND
     options[0]      = subsprite(sprite_WFC_input, .{32, 32}, .{-32, -32});
-    rules[0][UP]    = BIT(4) | BIT(0);  
-    rules[0][DOWN]  = BIT(1) | BIT(0); 
-    rules[0][LEFT]  = BIT(2) | BIT(0);
-    rules[0][RIGHT] = BIT(3) | BIT(0);
-    
+    rules[0][UP]    = BIT(0) | BIT(4) | BIT(2) | BIT(3);  
+    rules[0][DOWN]  = BIT(0) | BIT(1) | BIT(2) | BIT(3); 
+    rules[0][LEFT]  = BIT(0) | BIT(2) | BIT(4);
+    rules[0][RIGHT] = BIT(0) | BIT(3) | BIT(4);
+
     // WALL TOP
     options[1]      = subsprite(sprite_WFC_input, .{16, 32}, .{-32, -32});
     rules[1][UP]    = BIT(0);  
     rules[1][DOWN]  = BIT(5); 
-    rules[1][LEFT]  = BIT(3) | BIT(1);
-    rules[1][RIGHT] = BIT(2) | BIT(1);
+    rules[1][LEFT]  = BIT(1) | BIT(3);
+    rules[1][RIGHT] = BIT(1) | BIT(2);
 
     // WALL RIGHT SIDE 
     options[2]      = subsprite(sprite_WFC_input, .{32, 16}, .{-32, -32});
-    rules[2][UP]    = BIT(2) | BIT(0);  
-    rules[2][DOWN]  = BIT(2) | BIT(0); 
-    rules[2][LEFT]  = BIT(5) | BIT(1);
+    rules[2][UP]    = BIT(0) | BIT(2);  
+    rules[2][DOWN]  = BIT(0) | BIT(2); 
+    rules[2][LEFT]  = BIT(5) | BIT(1) | BIT(4);
     rules[2][RIGHT] = BIT(0);
 
     // WALL LEFT SIDE
     options[3]      = subsprite(sprite_WFC_input, .{ 0, 16}, .{-32, -32});
-    rules[3][UP]    = BIT(3) | BIT(0);  
-    rules[3][DOWN]  = BIT(3) | BIT(0); 
+    rules[3][UP]    = BIT(0) | BIT(3);  
+    rules[3][DOWN]  = BIT(0) | BIT(3); 
     rules[3][LEFT]  = BIT(0);
-    rules[3][RIGHT] = BIT(5) | BIT(1);
+    rules[3][RIGHT] = BIT(5) | BIT(1) | BIT(4);
 
     // WALL BOTTOM SIDE
     options[4]      = subsprite(sprite_WFC_input, .{16,  0}, .{-32, -32});
     rules[4][UP]    = BIT(5);
     rules[4][DOWN]  = BIT(0) | BIT(1); 
-    rules[4][LEFT]  = BIT(0);
-    rules[4][RIGHT] = BIT(0);
+    rules[4][LEFT]  = BIT(0) | BIT(3) | BIT(4);
+    rules[4][RIGHT] = BIT(0) | BIT(2) | BIT(4);
 
     // FLOOR 
     options[5]      = subsprite(sprite_WFC_input, .{16, 16}, .{-32, -32});
@@ -87,6 +87,57 @@ WFC_Init :: ()
             cell.grid_y = cast(u32)y;
         }
     }
+}
+
+WFC_propagate :: (primary_cell: *WFC_Cell,
+                  neighbor_cell: *WFC_Cell,
+                  neighbor_dir: Directions,
+                  opposite_dir: Directions) -> bool
+{
+    result: bool;
+    
+    if !neighbor_cell.is_collapsed
+    {
+        // check if each module is supported in the neighbor cell's domain
+        for module_index: 0..rule_count - 1
+        {
+            if (primary_cell.cell_mask & (1 << module_index))
+            {
+                supported: bool;
+                for rule_index: 0..rule_count - 1
+                {
+                    if neighbor_cell.cell_mask & (1 << rule_index)
+                    {
+                        if rules[module_index][neighbor_dir] & (1 << rule_index)
+                        {
+                            supported = true;
+                            break;
+                        }
+                    }
+                }
+
+                if !supported
+                {
+                    primary_cell.cell_mask &= ~(cast(u32)(1 << module_index));
+                    result = true;
+                }
+            }
+        }
+    }
+    else
+    {
+        module                 := neighbor_cell.cell_value;
+        allowed_mask           := rules[module][opposite_dir];
+        original_mask          := primary_cell.cell_mask;
+        primary_cell.cell_mask &= allowed_mask;
+
+        if primary_cell.cell_mask != original_mask
+        {
+            result = true;
+        }
+    }
+
+    return result;
 }
 
 WFC_generate :: (draw_frame: *Draw_Frame_Data)
@@ -174,6 +225,8 @@ WFC_generate :: (draw_frame: *Draw_Frame_Data)
                     cell := *grid[x_index][y_index];
                     if !cell.is_collapsed
                     {
+
+                        //propagated = WFC_propagate(cell, east_neighbor, RIGHT, LEFT);
                         //check right
                         if x_index + 1 < N
                         {
@@ -354,6 +407,7 @@ WFC_generate :: (draw_frame: *Draw_Frame_Data)
                             }
                         }
                         cell.entropy = cast(u32)(popcount(cell.cell_mask));
+                        assert(cell.entropy != 0);
                     }
                     else
                     {
