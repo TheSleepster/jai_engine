@@ -200,7 +200,7 @@ push_sprite_into_atlas :: (atlas: *Texture2D, sprite: *Atlas_Sprite)
 
             sprite_texture_data_offset := (y * sprite.atlas_size.x + x) *
                                            sprite.parent_texture.channels;
-            for channel_index : 0..sprite.parent_texture.channels
+            for channel_index: 0..sprite.parent_texture.channels - 1
             {
                 atlas.data[atlas_texture_data_offset + channel_index] =
                     sprite.parent_texture.data[sprite_texture_data_offset + channel_index];
@@ -243,7 +243,7 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
             texture_rect.atlas_texture  =  atlas_texture;
             if x_position + texture_rect.atlas_size.x > atlas_width
             {
-                y_position += largest_row_height;
+                y_position += (largest_row_height + 1);
                 x_position  = 0;
                 largest_row_height = 0;
             }
@@ -254,7 +254,7 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
                 return atlas_texture;
             }
             texture_rect.atlas_position = .{x_position, y_position};
-            x_position += texture_rect.atlas_size.x;
+            x_position += texture_rect.atlas_size.x + 1;
             if texture_rect.atlas_size.y > largest_row_height then largest_row_height = texture_rect.atlas_size.y;
 
             push_sprite_into_atlas(atlas_texture, texture_rect);

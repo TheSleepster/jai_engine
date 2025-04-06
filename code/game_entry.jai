@@ -165,7 +165,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     world_frame:  World_Frame_Data;
 
     // NOTE(Sleepster): CREATE MATRICES
-    size_data := (Vector3).{window_data.window_size.x / 480.0, window_data.window_size.y / 240.0, 1.0};
+    size_data := (Vector3).{window_data.window_size.x / 960.0, window_data.window_size.y / 480.0, 1.0};
     v2_approach(*game_camera.current_position, game_camera.target_position, game_camera.travel_rate, time.delta_time);
 
     scale_matrix       := mat4_make_scale(size_data);
@@ -201,7 +201,6 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
                                                             world_frame.screen_projection,
                                                             input_manager.keyboard_input.current_mouse_pos,
                                                             window_data.window_size);
-
     if !game_state.is_initialized
     {
         reload_asset_pointers(asset_manager);
@@ -210,8 +209,59 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         reset_arena(*game_state.game_arena);
         entity_manager.entities = push_array(*game_state.game_arena, Entity, MAX_ENTITIES);
 
-        WFC_Init();
-        WFC_generate(draw_frame);
+        modules := push_array(*game_state.game_arena, WFC_Module, 6);
+        generation_size := (iVector2).{60, 40};
+
+        // BLACK BACKGROUND
+        modules[0].sprite             = subsprite(sprite_WFC_input, .{32, 32}, .{-32, -32});
+        modules[0].weight             = 0.02;
+        modules[0].constraints[UP]    = BIT(0) | BIT(4) | BIT(2) | BIT(3);
+        modules[0].constraints[DOWN]  = BIT(0) | BIT(1) | BIT(2) | BIT(3);
+        modules[0].constraints[LEFT]  = BIT(0) | BIT(2) | BIT(4);
+        modules[0].constraints[RIGHT] = BIT(0) | BIT(3) | BIT(4);
+
+        // WALL TOP
+        modules[1].sprite             = subsprite(sprite_WFC_input, .{16, 32}, .{-32, -32});
+        modules[1].weight             = 2.0;
+        modules[1].constraints[UP]    = BIT(0);
+        modules[1].constraints[DOWN]  = BIT(5);
+        modules[1].constraints[LEFT]  = BIT(1) | BIT(3);
+        modules[1].constraints[RIGHT] = BIT(1) | BIT(2);
+
+        // WALL RIGHT SIDE 
+        modules[2].sprite             = subsprite(sprite_WFC_input, .{32, 16}, .{-32, -32});
+        modules[2].weight             = 0.2;
+        modules[2].constraints[UP]    = BIT(0) | BIT(2);
+        modules[2].constraints[DOWN]  = BIT(0) | BIT(2);
+        modules[2].constraints[LEFT]  = BIT(5) | BIT(1) | BIT(4);
+        modules[2].constraints[RIGHT] = BIT(0);
+
+        // WALL LEFT SIDE
+        modules[3].sprite             = subsprite(sprite_WFC_input, .{ 0, 16}, .{-32, -32});
+        modules[3].weight             = 0.2;
+        modules[3].constraints[UP]    = BIT(0) | BIT(3);
+        modules[3].constraints[DOWN]  = BIT(0) | BIT(3);
+        modules[3].constraints[LEFT]  = BIT(0);
+        modules[3].constraints[RIGHT] = BIT(5) | BIT(1) | BIT(4);
+
+        // WALL BOTTOM SIDE
+        modules[4].sprite             = subsprite(sprite_WFC_input, .{16,  0}, .{-32, -32});
+        modules[4].weight             = 2.0;
+        modules[4].constraints[UP]    = BIT(5);
+        modules[4].constraints[DOWN]  = BIT(0) | BIT(1);
+        modules[4].constraints[LEFT]  = BIT(0) | BIT(3) | BIT(4);
+        modules[4].constraints[RIGHT] = BIT(0) | BIT(2) | BIT(4);
+
+        // FLOOR 
+        modules[5].sprite             = subsprite(sprite_WFC_input, .{16, 16}, .{-32, -32});
+        modules[5].weight             = 25.0;
+        modules[5].constraints[UP]    = BIT(5) | BIT(1);
+        modules[5].constraints[DOWN]  = BIT(5) | BIT(4);
+        modules[5].constraints[LEFT]  = BIT(5) | BIT(3);
+        modules[5].constraints[RIGHT] = BIT(5) | BIT(2);
+
+        new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
+        WFC_generate(*new_chunk);
 
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
@@ -282,7 +332,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         reload_asset_pointers(asset_manager);
     }
 
-    WFC_render(draw_frame);
+    WFC_render(*new_chunk, draw_frame);
 
     // NOTE(Sleepster): UPDATE PLAYER
     world_frame.player = get_player(game_state.entity_manager);
@@ -652,8 +702,10 @@ tick_rate  :: 1.0/60.0;
 map_color1: Vector4;
 map_color2: Vector4;
 
+new_chunk: WFC_Gen_Chunk;
+
 #load "game_camera.jai";
 #load "game_entity.jai";
 #load "game_aabb.jai";
 #load "game_data.jai";
-#load "WFC_generation.jai";
+#load "game_world_gen.jai";

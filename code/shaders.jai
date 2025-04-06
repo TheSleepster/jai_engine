@@ -111,7 +111,7 @@ uniform sampler2D AtlasArray[32];
 out vec4 vFragColor;
 void main()
 {
-    vec2 NormalizedUV = vOutUVData / vec2(2048, 2048);
+    vec2 NormalizedUV = vOutUVData / ivec2(2048, 2048);
     vec4 TextureColor = texture(AtlasArray[vOutTexIndex], NormalizedUV);
     if(TextureColor.a == 0.0)
     {
