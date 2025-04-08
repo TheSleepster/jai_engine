@@ -153,8 +153,9 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 {
     DEBUG_profile_function();
     
-    game_state      :=  cast(*Game_State)game_memory.permanent_storage.block_data;
-    transient_state :=  cast(*Transient_State)game_memory.transient_storage.block_data;
+    game_state      :=  game_memory.game_state;
+    transient_state :=  game_memory.transient_state;
+
     asset_manager   :=  transient_state.asset_manager;
     input_manager   :=  game_state.input_manager;
     entity_manager  :=  game_state.entity_manager;
@@ -206,7 +207,6 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         reload_asset_pointers(asset_manager);
         init_game_data(game_data);
 
-        reset_arena(*game_state.game_arena);
         entity_manager.entities = push_array(*game_state.game_arena, Entity, MAX_ENTITIES);
 
         modules := push_array(*game_state.game_arena, WFC_Module, 6);
@@ -261,7 +261,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         modules[5].constraints[RIGHT] = BIT(5) | BIT(2);
 
         new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
-        WFC_generate(*new_chunk);
+        WFC_generate(*game_state.game_arena, *new_chunk);
 
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);

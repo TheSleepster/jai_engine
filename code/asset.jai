@@ -161,7 +161,7 @@ init_asset_image_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void
         transient_state.filepath_temp_string = copy_string(info.full_name);
         transient_state.basename_temp_string = copy_string(basename);
         
-        asset_data                       := push_element(*asset_manager.asset_arena, Asset_Slot);
+        asset_data                       := push_struct(*asset_manager.asset_arena, Asset_Slot);
         asset_data.texture_data.filepath  = copy_string(transient_state.filepath_temp_string);
         asset_data.texture_data.hash_name = copy_string(transient_state.basename_temp_string);
         asset_data.asset_type = Asset_Type_Data.IMAGE;
@@ -211,11 +211,14 @@ push_sprite_into_atlas :: (atlas: *Texture2D, sprite: *Atlas_Sprite)
 
 move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atlas_height: s32) -> *Texture2D
 {
-    atlas_texture : *Texture2D = push_element(*asset_manager.asset_arena, Texture2D);
+    atlas_texture : *Texture2D = push_struct(*asset_manager.asset_arena, Texture2D);
     atlas_texture.width        = atlas_width;
     atlas_texture.height       = atlas_height;
     atlas_texture.channels     = 4;
-    atlas_texture.data         = alloc(size_of(u8) * ((atlas_width * atlas_height) * 4));
+    if atlas_texture.data == null
+    {
+        atlas_texture.data     = push_size(*asset_manager.asset_arena, size_of(u8) * ((atlas_width * atlas_height) * 4));
+    }
 
     textures := asset_manager.transient_textures;
 
@@ -233,7 +236,7 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
         {
             main_texture := *textures[texture.original_index_before_sorting];
             
-            sprite_slot  := push_element(*asset_manager.asset_arena, Asset_Slot);
+            sprite_slot  := push_struct(*asset_manager.asset_arena, Asset_Slot);
             sprite_slot.slot_state = Asset_Slot_State.LOADED;
             sprite_slot.asset_type = Asset_Type_Data.SPRITE;
 
@@ -373,7 +376,7 @@ init_asset_sound_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void
         transient_state.filepath_temp_string = copy_string(info.full_name);
         transient_state.basename_temp_string = copy_string(basename);
 
-        asset_data := push_element(*asset_manager.asset_arena, Asset_Slot);
+        asset_data := push_struct(*asset_manager.asset_arena, Asset_Slot);
         asset_data.soundfx.filepath  = copy_string(transient_state.filepath_temp_string);
         asset_data.soundfx.hash_name = copy_string(transient_state.basename_temp_string);
         asset_data.asset_type = Asset_Type_Data.SOUNDFX;
@@ -417,7 +420,7 @@ play_sound :: (sound_manager: *Sound_Manager, key: string, left_channel_volume: 
 {
     if !sound_manager.first_free_playing_sound
     {
-        sound_manager.first_free_playing_sound = push_element(*sound_manager.sound_arena, Playing_Sound);
+        sound_manager.first_free_playing_sound = push_struct(*sound_manager.sound_arena, Playing_Sound);
         sound_manager.first_free_playing_sound.next_sound = null;
     }
     new_sound := sound_manager.first_free_playing_sound;
@@ -461,7 +464,7 @@ Shader_Data :: struct
 add_shader_to_hash :: (render_state: *Render_State, asset_manager: *Asset_Manager, shader_source: string, hash_key: string, type: u8)
 {
     // TODO(Sleepster): Investigate why this happens
-    asset_slot  := cast(*Asset_Slot)push_element(*render_state.render_arena, Asset_Slot);
+    asset_slot  := cast(*Asset_Slot)push_struct(*render_state.render_arena, Asset_Slot);
     //asset_slot  := New(Asset_Slot);
     shader_data := *asset_slot.shader;
 
@@ -616,7 +619,7 @@ init_bitmap_data :: (arena: *Memory_Arena, width: s32, height: s32, format: Bitm
     result.width  = width;
     result.height = height;
     result.stride = (1 * result.format);
-    result.data   = push_array(arena, u8, (result.width * result.height) * cast(s32)result.format);
+    result.data   = push_array(arena, u8, cast(u32)(result.width * result.height) * result.format);
     //result.data   = NewArray(width * height * cast(s32)format, u8);
 
     return result;
@@ -699,7 +702,7 @@ init_asset_font_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void)
         transient_state.filepath_temp_string = copy_string(info.full_name);
         transient_state.basename_temp_string = copy_string(basename);
 
-        font_slot_data := push_element(*asset_manager.asset_arena, Asset_Slot);
+        font_slot_data := push_struct(*asset_manager.asset_arena, Asset_Slot);
         font_slot_data.font_data.filepath  = copy_string(transient_state.filepath_temp_string);
         font_slot_data.font_data.font_name = copy_string(transient_state.basename_temp_string);
         font_slot_data.asset_type = Asset_Type_Data.FONT;
@@ -840,7 +843,7 @@ get_utf8_glyph :: (font_page: *Font_Page, char: *u8) -> *Font_Glyph_Data
             assert(!error);
         }
 
-        data := push_element(font_page.master_font.asset_arena, Font_Glyph_Data);
+        data := push_struct(font_page.master_font.asset_arena, Font_Glyph_Data);
         data.glyph_key = glyph_index;
         data.page      = font_page;
 

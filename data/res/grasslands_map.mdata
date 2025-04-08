@@ -1,4 +1,28 @@
-chunk:
+// data describing the biome's properties
 
-- dimensions
-- List of cells
+:/Biome_Metadata
+name:                     "grasslands_biome"
+chunk_dim:                10
+filepath_to_sprite_sheet: "../data/res/textures/DEBUG/test.png"
+
+// data per tile in the biome's options
+// organized:
+//           x_pos, y_pos, x_size, y_size
+// then the rules:
+//           up down left right
+
+:/Tile_Data
+sprite_data: 0  0  32 32 
+rules:       3  3  3  3
+
+sprite_data: 0  0  32 32
+rules:       3  3  3  3
+
+sprite_data: 0  0  32 32
+rules:       3  3  3  3
+
+sprite_data: 0  0  32 32
+rules:       3  3  3  3
+
+sprite_data: 0  0  32 32
+rules:       3  3  3  3

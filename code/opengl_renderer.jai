@@ -208,7 +208,6 @@ init_opengl :: (game_memory: *Game_Memory, window_data: *Window_Data,
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, size_of(u32) * MAX_INDICES, index_buffer.data, GL_STATIC_DRAW);
 
         T :: Vertex;
-        stride : u32 = size_of(T);
         offset: *T: null;
 
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, size_of(Vertex), xx *offset.vPosition);

@@ -1,31 +1,3 @@
-#if OS == .WINDOWS
-{
-    W :: #import "Windows";
-    my_alloc :: inline (size: u64) -> *void
-    {
-        data := W.VirtualAlloc(null, xx size, W.MEM_COMMIT|W.MEM_RESERVE, W.PAGE_READWRITE);
-        return data;
-    }
-}
-
-// NOTE(Sleepster): Helpers
-/////////////////////////////////////////
-KB :: (value : u64) -> u64 #expand
-{
-    return value * 1000;
-}
-
-MB :: (value : u64) -> u64 #expand
-{
-    return KB(value) * 1000;
-}
-
-GB :: (value : u64) -> u64 #expand
-{
-    return MB(value) * 1000;
-}
-/////////////////////////////////////////
-
 Memory_Block :: struct
 {
     block_data   : *void;
@@ -53,7 +25,7 @@ init_memory_block :: (size: u64) -> Memory_Block
 {
     result: Memory_Block;
     result.block_size   = size;
-    result.block_data   = my_alloc(xx size);
+    result.block_data   = platform_allocate_memory(xx size);
     result.block_offset = cast(*u8)result.block_data;
     return result;
 }
@@ -113,7 +85,7 @@ push_array :: inline (arena: *Memory_Arena, $T : Type, count: int, alignment: u3
     return result;
 }
 
-get_scratch_memory :: (arena : *Memory_Arena) -> Scratch_Arena
+begin_temporary_block :: (arena : *Memory_Arena) -> Scratch_Arena
 {
     result: Scratch_Arena;
     result.parent_arena   = arena;
@@ -123,7 +95,7 @@ get_scratch_memory :: (arena : *Memory_Arena) -> Scratch_Arena
     return result;
 }
 
-restore_from_scratch :: (scratch: *Scratch_Arena)
+end_temporary_block :: (scratch: *Scratch_Arena)
 {
     arena := scratch.parent_arena;
     assert(arena.used >= scratch.memory_used);

@@ -25,9 +25,6 @@ WFC_Cell :: struct
 {
     is_collapsed : bool;
     entropy      : u32;
-
-    grid_x : u32;
-    grid_y : u32;
     union
     {
         cell_value : u32;
@@ -44,10 +41,9 @@ WFC_Module :: struct
 
 WFC_Gen_Chunk :: struct
 {
-    chunk_size : iVector2;
-    chunk_modules    : []WFC_Module;
-
-    chunk_grid : [][]WFC_Cell;
+    chunk_size    : iVector2;
+    chunk_modules : []WFC_Module;
+    chunk_grid    : [][]WFC_Cell;
 };
 
 // TODO(Sleepster): This might be painfully slow 
@@ -57,10 +53,10 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
     new_chunk.chunk_size    = chunk_size;
     new_chunk.chunk_modules = modules;
 
-    new_chunk.chunk_grid = push_array(arena, []WFC_Cell, chunk_size.x);
+    new_chunk.chunk_grid = push_array(arena, []WFC_Cell, xx chunk_size.x);
     for x: 0..chunk_size.x - 1
     {
-        new_chunk.chunk_grid[x] = push_array(arena, WFC_Cell, chunk_size.y);
+        new_chunk.chunk_grid[x] = push_array(arena, WFC_Cell, xx chunk_size.y);
     }
 
     for x: 0..chunk_size.x - 1
@@ -68,12 +64,10 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
         for y: 0..chunk_size.y - 1
         {
             cell := *new_chunk.chunk_grid[x][y];
-           
+            
             cell.is_collapsed = false;
             cell.cell_value   = 0;
             cell.entropy      = xx modules.count;
-            cell.grid_x       = cast(u32)x;
-            cell.grid_y       = cast(u32)y;
 
             for module_index: 0..modules.count - 1
             {
@@ -138,17 +132,18 @@ WFC_propagate :: (chunk_data    : *WFC_Gen_Chunk,
     return result;
 }
 
-WFC_generate :: (gen_chunk: *WFC_Gen_Chunk)
+WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 {
     using gen_chunk;
     fail_chunk: WFC_Gen_Chunk;
     fail_chunk = gen_chunk.*;
     
+    scratch_arena := begin_temporary_block(arena);
     while true
     {
         to_collapse: []*WFC_Cell;
         to_collapse.count = (chunk_size.x * chunk_size.y);
-        to_collapse.data  = talloc((chunk_size.x * chunk_size.y) * size_of(*WFC_Cell));
+        to_collapse.data  = push_size(arena, size_of(*WFC_Cell) * (chunk_size.x * chunk_size.y));
         cell_count : u32;
 
         // builds list of tiles to collapse
@@ -197,7 +192,8 @@ WFC_generate :: (gen_chunk: *WFC_Gen_Chunk)
         // collapse the cell
         cell := to_collapse[index_to_pick];
         cell_modules: []u32;
-        cell_modules.data  = talloc(chunk_modules.count * size_of(u32));
+
+        cell_modules.data  = push_size(arena, xx (size_of(u32) * chunk_modules.count));
         cell_modules.count = chunk_modules.count;
 
         cell_module_counter: u32 = 0;
@@ -290,7 +286,7 @@ WFC_generate :: (gen_chunk: *WFC_Gen_Chunk)
                             log("[ERROR]: Generation has failed... Retrying...");
 
                             gen_chunk.* = fail_chunk;
-                            WFC_generate(gen_chunk);
+                            WFC_generate(arena, gen_chunk);
                         }
                     }
                     else
@@ -301,6 +297,7 @@ WFC_generate :: (gen_chunk: *WFC_Gen_Chunk)
             }
         }
     }
+    end_temporary_block(*scratch_arena);
 }
 
 WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)

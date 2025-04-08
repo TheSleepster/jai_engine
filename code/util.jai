@@ -1,9 +1,33 @@
-BIT :: inline (index: u32) -> u32
+offset_of :: ($T: Type, ident: Code) -> s64 #expand
+{
+    t: T = ---;
+    return cast(*void) (*t.#insert ident) - cast(*void) *t;
+}
+
+// NOTE(Sleepster): Helpers
+/////////////////////////////////////////
+KB :: (value: u64) -> u64 #expand
+{
+    return value * 1000;
+}
+
+MB :: (value: u64) -> u64 #expand
+{
+    return KB(value) * 1000;
+}
+
+GB :: (value: u64) -> u64 #expand
+{
+    return MB(value) * 1000;
+}
+/////////////////////////////////////////
+
+BIT :: inline (index: u32) -> u32 #expand
 {
     return cast(u32)(1 << index);
 }
 
-compare_s32 :: (a : s32, b : s32) -> int
+compare_s32 :: (a: s32, b: s32) -> int
 {
     return ifx a > b then -1 else 1; 
 }
@@ -22,7 +46,7 @@ f32_approach :: (value: *float32, target: float32, rate: float32, delta_time: fl
     }
 }
 
-v2_approach :: (value : *Vector2, target: Vector2, rate: float32, delta_time: float32)
+v2_approach :: (value: *Vector2, target: Vector2, rate: float32, delta_time: float32)
 {
     f32_approach(*value.x, target.x, rate, delta_time);
     f32_approach(*value.y, target.y, rate, delta_time);

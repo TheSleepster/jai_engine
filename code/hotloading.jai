@@ -61,12 +61,6 @@ hotload_assets :: (using asset_manager: *Asset_Manager) -> bool
                         if sprite
                         {
                             atlas := sprite.atlas_texture;
-                            if atlas.data != null
-                            {
-                                free(atlas.data);
-                                atlas.data = null;
-                            }
-
                             load_textures_into_atlas(asset_manager, basename);
                         }
                     }

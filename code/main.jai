@@ -23,7 +23,8 @@
 
 // ENGINE LOADS
 #load   "util.jai";
-#load   "arena.jai";
+//#load   "arena.jai";
+#load   "memory.jai";
 #load   "sprite_hash.jai";
 #load   "asset.jai";
 #load   "shaders.jai";
@@ -72,17 +73,18 @@ Window_Data :: struct
 
 Game_Memory :: struct
 {
-    permanent_storage : Memory_Block;
-    transient_storage : Memory_Block;
+    game_state      : *Game_State;
+    transient_state : *Transient_State;
 };
 
 Transient_State :: struct
 {
-    garbage_arena          : Memory_Arena;
-    asset_manager          : *Asset_Manager;
+    tran_arena           : Memory_Arena;
+    garbage_arena        : Memory_Arena;
+    asset_manager        : *Asset_Manager;
 
-    basename_temp_string   : string;
-    filepath_temp_string   : string;
+    basename_temp_string : string;
+    filepath_temp_string : string;
 };
 
 Time_Data :: struct
@@ -133,9 +135,9 @@ main :: ()
         time            : Time_Data;
 
         game_state      : *Game_State;
-        entity_manager  : Entity_Manager;
-
+        entity_manager  :  Entity_Manager;
         transient_state : *Transient_State;
+
         
         window_data.window_size = .{1920, 1080};
         window_data.window = SDL_CreateWindow("Hello, Sailor",
@@ -151,34 +153,35 @@ main :: ()
             {
                 // POOL INIT
                 {
-                    game_memory.permanent_storage = init_memory_block(GB(5));
-                    game_memory.transient_storage = init_memory_block(GB(5));
+                    game_memory.game_state =
+                        cast(*Game_State)bootstrap_allocate_struct(Game_State, offset_of(Game_State, #code game_arena));
 
-                    game_state = game_memory.permanent_storage.block_data;
-                    game_memory.permanent_storage.block_offset += size_of(Game_State);
+                    game_memory.transient_state =
+                        cast(*Transient_State)bootstrap_allocate_struct(Transient_State, offset_of(Transient_State, #code tran_arena)); 
+                    
+                    game_state      = game_memory.game_state;
+                    transient_state = game_memory.transient_state;
+
                     game_state.is_running = true;
                     game_state.is_initialized = false;
-
-                    transient_state = game_memory.transient_storage.block_data;
-                    game_memory.transient_storage.block_offset += size_of(Transient_State);
                 }
                 
-                asset_manager.asset_arena      = init_arena(*game_memory.transient_storage, xx MB(1000));
-                render_state.render_arena      = init_arena(*game_memory.permanent_storage, xx MB(100));
-                sound_manager.sound_arena      = init_arena(*game_memory.permanent_storage, xx MB(200));
-                transient_state.garbage_arena  = init_arena(*game_memory.transient_storage, xx MB(100));
+                asset_manager.asset_arena      = init_arena(MB(100));
+                render_state.render_arena      = init_arena(MB(100));
+                sound_manager.sound_arena      = init_arena(MB(100));
+                transient_state.garbage_arena  = init_arena(MB(100));
 
                 // RENDERER MEMORY
                 {
-                    draw_frame_data.primary_vertex_buffer = push_array(*render_state.render_arena, Vertex, MAX_VERTICES_PER_DRAW);
-                    draw_frame_data.primary_quad_buffer   = push_array(*render_state.render_arena, Render_Quad, MAX_QUADS_PER_DRAW);
-                    draw_frame_data.sorting_quad_buffer   = push_array(*render_state.render_arena, Render_Quad, MAX_QUADS_PER_DRAW);
+                    draw_frame_data.primary_vertex_buffer =  push_array(*render_state.render_arena, Vertex, MAX_VERTICES_PER_DRAW);
+                    draw_frame_data.primary_quad_buffer   =  push_array(*render_state.render_arena, Render_Quad, MAX_QUADS_PER_DRAW);
+                    draw_frame_data.sorting_quad_buffer   =  push_array(*render_state.render_arena, Render_Quad, MAX_QUADS_PER_DRAW);
                     draw_frame_data.vertex_buffer_ptr     = *draw_frame_data.primary_vertex_buffer[0];
                 }
 
                 // GAME MEMORY 
                 {
-                    game_state.game_arena = init_arena(*game_memory.permanent_storage, xx MB(200));
+//                    game_state.game_arena = init_arena(*game_memory.permanent_storage, xx MB(200));
                 }
 
                 game_state.input_manager  = *input_manager;
@@ -236,7 +239,7 @@ main :: ()
                 // NOTE(Sleepster): in stereo, it is 4 bytes per sample because each s16 is a part of a sample.
                 // The sample would be s16 * channel_count
                 sound_manager.manager_buffer_info.bytes_per_sample        = size_of(s16) * sound_manager.manager_spec.channels;
-                sound_manager.manager_buffer_info.sample_buffer_size      = cast(s32)((SAMPLES_PER_SECOND) * sound_manager.manager_spec.channels);
+                sound_manager.manager_buffer_info.sample_buffer_size      = cast(u32)((SAMPLES_PER_SECOND) * sound_manager.manager_spec.channels);
                 sound_manager.manager_buffer_info.primary_sample_buffer   = cast(*s16)push_array(*sound_manager.sound_arena, s16, sound_manager.manager_buffer_info.sample_buffer_size).data;
                 sound_manager.manager_buffer_info.secondary_sample_buffer = cast(*s16)push_array(*sound_manager.sound_arena, s16, sound_manager.manager_buffer_info.sample_buffer_size).data;
                 sound_manager.manager_buffer_info.sample_latency          = SAMPLES_PER_SECOND / 5;

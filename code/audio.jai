@@ -16,7 +16,7 @@ Audio_Buffer_Data :: struct
 
     primary_sample_buffer   : *s16;
     secondary_sample_buffer : *s16;
-    sample_buffer_size      :  s32;
+    sample_buffer_size      :  u32;
 
     play_cursor             :  s32;
     write_cursor            :  s32;
