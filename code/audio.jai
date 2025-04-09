@@ -265,8 +265,9 @@ mixer_handle_all_playing_sounds :: (sound_manager : *Sound_Manager, time: Time_D
     transient_state := sound_manager.asset_manager.transient_state;
     using sound_manager;
 
-    mixer_buffer_00 : *float32 = cast(*float32)push_size(*transient_state.garbage_arena, size_of(float32) * manager_buffer_info.samples_to_output);
-    mixer_buffer_01 : *float32 = cast(*float32)push_size(*transient_state.garbage_arena, size_of(float32) * manager_buffer_info.samples_to_output);
+    scratch_arena := begin_temporary_block(*sound_manager.sound_arena);
+    mixer_buffer_00 : *float32 = cast(*float32)push_size(*sound_manager.sound_arena, size_of(float32) * manager_buffer_info.samples_to_output);
+    mixer_buffer_01 : *float32 = cast(*float32)push_size(*sound_manager.sound_arena, size_of(float32) * manager_buffer_info.samples_to_output);
 
     dest_00 : *float32 = mixer_buffer_00;
     dest_01 : *float32 = mixer_buffer_01;
@@ -358,4 +359,6 @@ mixer_handle_all_playing_sounds :: (sound_manager : *Sound_Manager, time: Time_D
             manager_buffer_info.running_sample_index += 1;
         }
     }
+
+    end_temporary_block(*scratch_arena);
 }

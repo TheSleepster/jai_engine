@@ -219,8 +219,7 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
             total_weight += chunk_modules[cell_modules[0]].weight;
         }
 
-        collapsed_value  := random_get_within_range(*context.random_state, 0.0, total_weight);
-        
+        collapsed_value   := random_get_within_range(*context.random_state, 0.0, total_weight);
         cumulative_weight : float32;
         selected_module   : u32;
         for index: 0..cell_module_counter - 1

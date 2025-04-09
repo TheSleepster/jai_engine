@@ -39,6 +39,12 @@
 // GAME LOADS
 #load   "game_entry.jai";
 
+/*
+    TODO:
+       - Multithreading
+       - We have a big memory leak.
+*/
+
 DEBUG :: 1;
 
 SAMPLES_PER_SECOND    :: 48000;
@@ -116,7 +122,6 @@ reset_frame_data :: (transient_state: *Transient_State, draw_frame: *Draw_Frame_
         value = 0;
     }
 
-    reset_arena(*transient_state.garbage_arena);
     reset_temporary_storage();
 }
 
@@ -206,10 +211,11 @@ main :: ()
                 {
                     device_name   := SDL_GetAudioDeviceName(device_index, 0);
                     print("DEVICE FOUND... %\n", to_string(device_name));
-                    if(!compare_strings(to_string(device_name), "Speakers (3- I'm Fulla Schiit)"))
-                    {
-                        sound_manager.default_device = to_string(device_name); 
-                    }
+                    // if(!compare_strings(to_string(device_name), "Speakers (3- I'm Fulla Schiit)"))
+                    // {
+                    //     sound_manager.default_device = to_string(device_name); 
+                    // }
+
                 }
 
                 sound_manager.device_id =
@@ -305,7 +311,6 @@ main :: ()
                 test_render(*render_state, *draw_frame_data, *asset_manager);
 
                 SDL_GL_SwapWindow(window_data.window);
-                reset_frame_data(transient_state, *draw_frame_data, *window_data);
 
                 time.current_time = SDL_GetPerformanceCounter();
                 time.delta_time   = cast(float32)((time.current_time - time.last_time) * 100 / cast(float32)time.performance_counter_frequency);
@@ -314,7 +319,7 @@ main :: ()
                 accumulator += time.delta_time * 10;
                 if accumulator > 1000
                 {
-                    print("DELTA_TIME: %ms\n", time.delta_time * 10);
+//                    print("DELTA_TIME: %ms\n", time.delta_time * 10);
                     accumulator = 0.0;
                 }
 
@@ -324,7 +329,7 @@ main :: ()
                     hotload_assets(*asset_manager);
                     hotload_variable_file_data("../data/res/");
                 }
-
+                reset_frame_data(transient_state, *draw_frame_data, *window_data);
             }
             DEBUG_report_timing_info();
             SDL_Delay(10);

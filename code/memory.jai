@@ -12,6 +12,7 @@ TODO:
     platform_allocate_memory :: inline (size: u64) -> *void
     {
         data := W.VirtualAlloc(null, xx size, W.MEM_COMMIT|W.MEM_RESERVE, W.PAGE_READWRITE);
+        log("Virtual alloc called with a size of: '%'\n", size);
         return data;
     }
 
@@ -74,7 +75,7 @@ bootstrap_allocate_struct :: inline ($bootstrap: Type, offset: s64, minimum_bloc
     bootstrap_arena: Memory_Arena;
     bootstrap_struct := push_struct(*bootstrap_arena, bootstrap);
 
-    <<cast(*Memory_Arena)(bootstrap_struct + offset) = bootstrap_arena;
+    (cast(*Memory_Arena)(bootstrap_struct + offset)).* = bootstrap_arena;
 
     return bootstrap_struct;
 }
@@ -189,6 +190,7 @@ end_temporary_block :: (scratch: *Scratch_Arena)
     while arena.base != scratch.parent_base
     {
         free_last_block(arena);
+        log("[INFO]: [end_temporary_block]: Block freed...\n");
     }
 
     assert(arena.used >= scratch.memory_used);
@@ -199,20 +201,12 @@ end_temporary_block :: (scratch: *Scratch_Arena)
     arena -= 1;
 }
 
-init_sub_arena :: inline (arena: *Memory_Arena, child_capacity: u32, alignment: u32 = 4) -> Memory_Arena
-{
-    result: Memory_Arena;
-    result.capacity = child_capacity;
-    result.base     = push_size(arena, child_capacity, alignment);
-
-    return result;
-}
-
 reset_arena :: (arena: *Memory_Arena)
 {
     while arena.block_count > 0
     {
         free_last_block(arena);
+        log("[INFO]: [reset_arena]: Block freed...\n");
     }
     arena.used = 0;
 }
