@@ -1,0 +1,186 @@
+{
+  "main": {
+    "id": "bae1b3350c41757c",
+    "type": "split",
+    "children": [
+      {
+        "id": "e3b5f9964e8d2fb4",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6f58869f75c5e0e1",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Areas/Handmade/Build System Changes.md",
+                "mode": "source",
+                "source": false
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "75b22b579eb43f74",
+    "type": "split",
+    "children": [
+      {
+        "id": "e7dc3fbcc57047d9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "7c195a5bf3a6acc8",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabeticalReverse"
+              }
+            }
+          },
+          {
+            "id": "973c28caadf4a50d",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "b4a87b989f8c66cc",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "61de4e03982ae9dd",
+    "type": "split",
+    "children": [
+      {
+        "id": "4216f7bab0ad2807",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "15a2052c466d6107",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Areas/Handmade/Build System Changes.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "610db0fef240d1ab",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Areas/Handmade/Build System Changes.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "1bc19f03f2760967",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true
+              }
+            }
+          },
+          {
+            "id": "fd9c1a89cef01020",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Areas/Handmade/Build System Changes.md"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false
+    }
+  },
+  "active": "6f58869f75c5e0e1",
+  "lastOpenFiles": [
+    "Projects/Asteroids.md",
+    "Areas/Learn Raylib/Test Platformer.md",
+    "Areas/ECS.md",
+    "List.md",
+    "Areas/Handmade/Build System Changes.md",
+    "Areas/Handmade",
+    "Areas/Discord/Learn Rust.md",
+    "Areas/Discord/Discord Bot.md",
+    "Archives/OpenGL Basics/IBOs.md",
+    "Archives/OpenGL Basics/Shader Files.md",
+    "Archives/OpenGL Basics/VAOs.md",
+    "Archives/OpenGL Basics/Graphics Rendering Pipeline.md",
+    "Areas/Discord",
+    "Projects/Learn Raylib/Discord Bot.md",
+    "Archives/Learn OpenGL Shaders",
+    "Areas/Learn Raylib",
+    "Projects/Learn Raylib.md",
+    "Archives/OpenGL Basics",
+    "Archives",
+    "Areas",
+    "Resources",
+    "Projects",
+    "Resources/Images/Pasted image 20240321104533.png",
+    "Resources/Images/Pasted image 20240321104309.png",
+    "Resources/Images/Pasted image 20240321103540.png",
+    "Resources/Images/Pasted image 20240321075536.png",
+    "Resources/Images/Pasted image 20240321075135.png",
+    "Resources/Images/Pasted image 20240320081217.png",
+    "Resources/Images/Pasted image 20240320080931.png",
+    "Resources/Images/Pasted image 20240319175653.png",
+    "Resources/Images/Pasted image 20240319173129.png",
+    "Resources/Images/Pasted image 20240319172357.png",
+    "Resources/Images",
+    "Vertex Array Object.md"
+  ]
+}

@@ -1,0 +1,17 @@
+## TODO
+- [x] Rework UI into a simple reusable system
+- [x] Reworked HotbarUI
+- [x] Added InventoryUI
+- [x] InventoryManagement
+- [x] Binding 1-6 to hotbar slots
+- [x] Add Work Stations
+- [x] Crafting Formula Storage method
+- [x] Crafting
+- [x] Build Menu
+- [x] Sprite Makeover, put things to a semi-ideal scale
+- [x] Clean up the code to make it as easy as possible to add to the game 
+- [ ] Health System
+- [ ] Add proper tools
+- [ ] Basic AI
+- [ ] Map Serialization
+- [ ] Animation
