@@ -173,6 +173,33 @@ init_asset_image_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void
     }
 }
 
+asset_load_texture_from_path :: (filepath: string, load_automatically := false) -> Texture2D
+{
+    result: Texture2D;
+    result.filepath = filepath;
+
+    stbi_set_flip_vertically_on_load(1);
+    result.data = stbi_load(result.filepath.data, *result.width, *result.height, *result.channels, 0);
+    if result.data != null
+    {
+        if load_automatically
+        {
+            loaded := create_texture_from_data(*result);
+            if !loaded
+            {
+                log("[ERROR]: Failed to load image from filepath: '%'...\n", filepath);
+                return (Texture2D).{};
+            }
+        }
+    }
+    else
+    {
+        log("[ERROR]: Failed to extract the image data from file: '%'...\n", filepath);
+    }
+
+    return result;
+}
+
 asset_load_texture_data :: (texture: *Texture2D, load_automatically := false) -> bool
 {
     stbi_set_flip_vertically_on_load(1);
@@ -186,6 +213,11 @@ asset_load_texture_data :: (texture: *Texture2D, load_automatically := false) ->
 
         return loaded;
     }
+    else
+    {
+        log("[ERROR]: Failed to extract the image data from file: '%'...\n", texture.filepath);
+    }
+
     return false;
 }
 

@@ -3,7 +3,7 @@
 //#import "some shader file";
 //END
 
-BASIC_SHADER_SOURCE_TEXT :: #string END
+BASIC_SHADER_SOURCE_TEXT :: #string END 
 
 #ifdef VERTEX_SHADER
 layout(location = 0) in vec4 vPosition;

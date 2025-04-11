@@ -14,10 +14,10 @@ TODO:
 
 using Directions :: enum u8
 {
-    UP;
-    DOWN;
-    LEFT;
-    RIGHT;
+    NORTH;
+    SOUTH;
+    WEST;
+    EAST;
     COUNT;
 };
 
@@ -37,6 +37,9 @@ WFC_Module :: struct
     sprite      : Atlas_Sprite;
     constraints : [Directions.COUNT]u32;
     weight      : float32;
+
+    // NOTE(Sleepster): This is used for access on module generation.
+    hash_value  : s64 = -1;
 };
 
 WFC_Gen_Chunk :: struct
@@ -250,32 +253,32 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                     cell := *chunk_grid[x_index][y_index];
                     if !cell.is_collapsed
                     {
-                        //check right
+                        //check east
                         if x_index + 1 < chunk_size.x
                         {
                             east_neighbor := *chunk_grid[x_index + 1][y_index];
-                            propagated = WFC_propagate(gen_chunk, cell, east_neighbor, RIGHT, LEFT);
+                            propagated = WFC_propagate(gen_chunk, cell, east_neighbor, EAST, WEST);
                         }
 
-                        //check left
+                        //check west
                         if x_index - 1 >= 0
                         {
                             west_neighbor := *chunk_grid[x_index - 1][y_index];
-                            propagated = WFC_propagate(gen_chunk, cell, west_neighbor, LEFT, RIGHT);
+                            propagated = WFC_propagate(gen_chunk, cell, west_neighbor, WEST, EAST);
                         }
 
-                        //check up
+                        //check north
                         if y_index + 1 < chunk_size.y
                         {
                             north_neighbor := *chunk_grid[x_index][y_index + 1];
-                            propagated = WFC_propagate(gen_chunk, cell, north_neighbor, UP, DOWN);
+                            propagated = WFC_propagate(gen_chunk, cell, north_neighbor, NORTH, SOUTH);
                         }
 
-                        //check down
+                        //check south
                         if y_index - 1 >= 0
                         {
                             south_neighbor := *chunk_grid[x_index][y_index - 1];
-                            propagated = WFC_propagate(gen_chunk, cell, south_neighbor, DOWN, UP);
+                            propagated = WFC_propagate(gen_chunk, cell, south_neighbor, SOUTH, NORTH);
                         }
                         cell.entropy = cast(u32)(popcount(cell.cell_mask));
 
@@ -323,3 +326,108 @@ WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
     // draw_texture(draw_frame, .{-50, -32}, .{16, 16}, *options[4], WHITE);
     // draw_texture(draw_frame, .{-50, -48}, .{16, 16}, *options[5], WHITE);
 }
+
+/////////////////////////////////////
+// AUTOMATIC STM MODULE GENERATION
+/////////////////////////////////////
+
+WFC_analyze :: (arena: *Memory_Arena)
+{
+    texture := asset_load_texture_from_path(example_image_filepath);
+
+    // setup
+    grid_width := texture.width  / tile_size.x;
+    grid_height := texture.height / tile_size.y;
+
+    scratch := begin_temporary_block(arena);
+    module_hash := push_array(arena, WFC_Module, xx (grid_width * grid_height));
+    for *module: module_hash
+    {
+        module.hash_value = -1;
+    }
+
+    module_grid: [][]s64;
+    module_grid = push_array(arena, []s64, xx grid_width);
+    for grid_y: 0..grid_height - 1
+    {
+        module_grid[grid_y] = push_array(arena, s64, xx grid_height);
+    }
+
+    // hash
+    for grid_x: 0..grid_width - 1
+    {
+        for grid_y: 0..grid_height - 1
+        {
+            hash_value: u64 = 14695981039346656037;
+            for x: 0..tile_size.x 
+            {
+                for y: 0..tile_size.y 
+                {
+                    pixel_x := grid_x * tile_size.x + x;
+                    pixel_y := grid_y * tile_size.y + y;
+
+                    pixel_index := (pixel_y * texture.width + pixel_x) * texture.channels;
+                    for channel: 0..texture.channels - 1
+                    {
+                        hash_value = hash_value ^ texture.data[pixel_index + channel];
+                        hash_value = hash_value * 1099511628211;
+                    }
+                }
+            }
+
+            hash_index    := (hash_value % xx module_hash.count);
+            log("HASH INDEX: '%', grid pos: {%, %}\n", hash_index, grid_x, grid_y);
+            
+            hashed_module := *module_hash[hash_index];
+            if hashed_module.hash_value == -1 
+            {
+                hashed_module.hash_value = xx hash_index;
+            }
+
+            module_grid[grid_x][grid_y] = xx hash_index;
+        }
+    }
+
+    // analysis
+    for x: 0..grid_width - 1
+    {
+        for y: 0..grid_height - 1
+        {
+            grid_value := module_grid[x][y];
+            //check east
+            if x + 1 < grid_width
+            {
+                east_neighbor := module_grid[x + 1][y];
+                module := *module_hash[east_neighbor];
+            }
+
+            //check west
+            if x - 1 >= 0
+            {
+                west_neighbor := module_grid[x - 1][y];
+                module := *module_hash[west_neighbor];
+            }
+
+            //check north
+            if y + 1 < grid_height
+            { 
+                north_neighbor := module_grid[x][y + 1];
+                module := *module_hash[north_neighbor];
+            }
+
+            //check south
+            if y - 1 >= 0
+            {
+                south_neighbor := module_grid[x][y - 1];
+                module := *module_hash[south_neighbor];
+            }
+        }
+    }
+
+    end_temporary_block(*scratch);
+}
+
+#scope_file
+example_image_filepath : string = "../data/res/textures/OLM_test_input.png";
+tile_size              : iVector2 = .{16, 16};
+

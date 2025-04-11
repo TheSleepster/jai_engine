@@ -215,7 +215,6 @@ main :: ()
                     // {
                     //     sound_manager.default_device = to_string(device_name); 
                     // }
-
                 }
 
                 sound_manager.device_id =

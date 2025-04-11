@@ -21,6 +21,22 @@ TODO:
         W.VirtualFree(data, 0, W.MEM_RELEASE);
     }
 }
+#if OS == .LINUX
+{
+    P :: #import "POSIX";
+
+    platform_allocate_memory :: inline (size: u64) -> *void
+    {
+        data := alloc(xx size);
+        log("alloc called with a size of: '%'\n", size);
+        return data;
+    }
+
+    platform_deallocate_memory :: inline (data: *void)
+    {
+        free(data);
+    }
+}
 
 Memory_Arena_Footer :: struct
 {
