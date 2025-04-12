@@ -215,52 +215,130 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         generation_size := (iVector2).{60, 40};
 
         // BLACK BACKGROUND
-        modules[0].sprite             = subsprite(sprite_WFC_input, .{32, 32}, .{-32, -32});
-        modules[0].weight             = 0.02;
-        modules[0].constraints[NORTH] = BIT(0) | BIT(4) | BIT(2) | BIT(3);
-        modules[0].constraints[SOUTH] = BIT(0) | BIT(1) | BIT(2) | BIT(3);
-        modules[0].constraints[WEST]  = BIT(0) | BIT(2) | BIT(4);
-        modules[0].constraints[EAST]  = BIT(0) | BIT(3) | BIT(4);
+        modules[0].sprite = subsprite(sprite_WFC_input, .{32, 32}, .{-32, -32});
+        modules[0].weight = 0.02;
+        for *constraint: modules[0].constraints
+        {
+            constraint.* = bitset_create(modules.count);
+        }
+
+        bitset_set_bit(*modules[0].constraints[NORTH], 0);
+        bitset_set_bit(*modules[0].constraints[NORTH], 4);
+        bitset_set_bit(*modules[0].constraints[NORTH], 2);
+        bitset_set_bit(*modules[0].constraints[NORTH], 3);
+
+        bitset_set_bit(*modules[0].constraints[SOUTH], 0);
+        bitset_set_bit(*modules[0].constraints[SOUTH], 1);
+        bitset_set_bit(*modules[0].constraints[SOUTH], 2);
+        bitset_set_bit(*modules[0].constraints[SOUTH], 3);
+
+        bitset_set_bit(*modules[0].constraints[EAST], 0);
+        bitset_set_bit(*modules[0].constraints[EAST], 3);
+        bitset_set_bit(*modules[0].constraints[EAST], 4);
+
+        bitset_set_bit(*modules[0].constraints[WEST], 0);
+        bitset_set_bit(*modules[0].constraints[WEST], 2);
+        bitset_set_bit(*modules[0].constraints[WEST], 4);
 
         // WALL TOP
-        modules[1].sprite             = subsprite(sprite_WFC_input, .{16, 32}, .{-32, -32});
-        modules[1].weight             = 2.0;
-        modules[1].constraints[NORTH] = BIT(0);
-        modules[1].constraints[SOUTH] = BIT(5);
-        modules[1].constraints[WEST]  = BIT(1) | BIT(3);
-        modules[1].constraints[EAST]  = BIT(1) | BIT(2);
+        modules[1].sprite = subsprite(sprite_WFC_input, .{16, 32}, .{-32, -32});
+        modules[1].weight = 2.0;
+        for *constraint: modules[1].constraints
+        {
+            constraint.* = bitset_create(modules.count);
+        }
+
+        bitset_set_bit(*modules[1].constraints[NORTH], 0);
+
+        bitset_set_bit(*modules[1].constraints[SOUTH], 5);
+
+        bitset_set_bit(*modules[1].constraints[EAST], 1);
+        bitset_set_bit(*modules[1].constraints[EAST], 2);
+
+        bitset_set_bit(*modules[1].constraints[WEST], 1);
+        bitset_set_bit(*modules[1].constraints[WEST], 3);
+
 
         // WALL EAST SIDE 
-        modules[2].sprite             = subsprite(sprite_WFC_input, .{32, 16}, .{-32, -32});
-        modules[2].weight             = 0.2;
-        modules[2].constraints[NORTH] = BIT(0) | BIT(2);
-        modules[2].constraints[SOUTH] = BIT(0) | BIT(2);
-        modules[2].constraints[WEST]  = BIT(5) | BIT(1) | BIT(4);
-        modules[2].constraints[EAST]  = BIT(0);
+        modules[2].sprite = subsprite(sprite_WFC_input, .{32, 16}, .{-32, -32});
+        modules[2].weight = 0.2;
+        for *constraint: modules[2].constraints
+        {
+            constraint.* = bitset_create(modules.count);
+        }
+
+        bitset_set_bit(*modules[2].constraints[NORTH], 0);
+        bitset_set_bit(*modules[2].constraints[NORTH], 2);
+
+        bitset_set_bit(*modules[2].constraints[SOUTH], 0);
+        bitset_set_bit(*modules[2].constraints[SOUTH], 2);
+
+        bitset_set_bit(*modules[2].constraints[EAST], 0);
+
+        bitset_set_bit(*modules[2].constraints[WEST], 5);
+        bitset_set_bit(*modules[2].constraints[WEST], 1);
+        bitset_set_bit(*modules[2].constraints[WEST], 4);
 
         // WALL WEST SIDE
-        modules[3].sprite             = subsprite(sprite_WFC_input, .{ 0, 16}, .{-32, -32});
-        modules[3].weight             = 0.2;
-        modules[3].constraints[NORTH] = BIT(0) | BIT(3);
-        modules[3].constraints[SOUTH] = BIT(0) | BIT(3);
-        modules[3].constraints[WEST]  = BIT(0);
-        modules[3].constraints[EAST]  = BIT(5) | BIT(1) | BIT(4);
+        modules[3].sprite = subsprite(sprite_WFC_input, .{ 0, 16}, .{-32, -32});
+        modules[3].weight = 0.2;
+        for *constraint: modules[3].constraints
+        {
+            constraint.* = bitset_create(modules.count);
+        }
+        
+        bitset_set_bit(*modules[3].constraints[NORTH], 0);
+        bitset_set_bit(*modules[3].constraints[NORTH], 3);
+
+        bitset_set_bit(*modules[3].constraints[SOUTH], 0);
+        bitset_set_bit(*modules[3].constraints[SOUTH], 3);
+
+        bitset_set_bit(*modules[3].constraints[EAST], 5);
+        bitset_set_bit(*modules[3].constraints[EAST], 4);
+        bitset_set_bit(*modules[3].constraints[EAST], 1);
+
+        bitset_set_bit(*modules[3].constraints[WEST], 0);
 
         // WALL BOTTOM SIDE
-        modules[4].sprite             = subsprite(sprite_WFC_input, .{16,  0}, .{-32, -32});
-        modules[4].weight             = 2.0;
-        modules[4].constraints[NORTH] = BIT(5);
-        modules[4].constraints[SOUTH] = BIT(0) | BIT(1);
-        modules[4].constraints[WEST]  = BIT(0) | BIT(3) | BIT(4);
-        modules[4].constraints[EAST]  = BIT(0) | BIT(2) | BIT(4);
+        modules[4].sprite = subsprite(sprite_WFC_input, .{16,  0}, .{-32, -32});
+        modules[4].weight = 2.0;
+        for *constraint: modules[4].constraints
+        {
+            constraint.* = bitset_create(modules.count);
+        }
+
+        bitset_set_bit(*modules[4].constraints[NORTH], 5);
+
+        bitset_set_bit(*modules[4].constraints[SOUTH], 0);
+        bitset_set_bit(*modules[4].constraints[SOUTH], 1);
+
+        bitset_set_bit(*modules[4].constraints[EAST], 0);
+        bitset_set_bit(*modules[4].constraints[EAST], 2);
+        bitset_set_bit(*modules[4].constraints[EAST], 4);
+
+        bitset_set_bit(*modules[4].constraints[WEST], 0);
+        bitset_set_bit(*modules[4].constraints[WEST], 3);
+        bitset_set_bit(*modules[4].constraints[WEST], 4);
 
         // FLOOR 
-        modules[5].sprite             = subsprite(sprite_WFC_input, .{16, 16}, .{-32, -32});
-        modules[5].weight             = 25.0;
-        modules[5].constraints[NORTH] = BIT(5) | BIT(1);
-        modules[5].constraints[SOUTH] = BIT(5) | BIT(4);
-        modules[5].constraints[WEST]  = BIT(5) | BIT(3);
-        modules[5].constraints[EAST]  = BIT(5) | BIT(2);
+        modules[5].sprite = subsprite(sprite_WFC_input, .{16, 16}, .{-32, -32});
+        modules[5].weight = 25.0;
+        for *constraint: modules[5].constraints
+        {
+            constraint.* = bitset_create(modules.count);
+        }
+
+        bitset_set_bit(*modules[5].constraints[NORTH], 5);
+        bitset_set_bit(*modules[5].constraints[NORTH], 1);
+
+        bitset_set_bit(*modules[5].constraints[SOUTH], 5);
+        bitset_set_bit(*modules[5].constraints[SOUTH], 4);
+
+        bitset_set_bit(*modules[5].constraints[EAST], 5);
+        bitset_set_bit(*modules[5].constraints[EAST], 2);
+
+        bitset_set_bit(*modules[5].constraints[WEST], 5);
+        bitset_set_bit(*modules[5].constraints[WEST], 3);
 
         new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
         WFC_generate(*game_state.game_arena, *new_chunk);

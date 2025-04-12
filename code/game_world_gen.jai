@@ -9,8 +9,103 @@ TODO:
 
   - [ ] Improve the way we supply rules and options
 
+  - [ ] Bitset, we need more than 64 options for modules
+
+  - [ ] Compress the options so that they also store a rotation??
+
+  - [ ] A* path finding to tie the rooms together
+
   - [ ] Path contraints?
 */
+
+////////////////
+// BITSET DATA
+////////////////
+
+Bitset :: struct
+{
+    bits      : []u64;
+    bit_count : s64;
+}#no_padding;
+
+bitset_create :: (bit_count: s64) -> Bitset #must
+{
+    // NOTE(Sleepster): assert you're not stupid...
+    assert(bit_count > 0);
+    
+    result: Bitset;
+    result.bits      = NewArray((bit_count + 63) >> 6, u64); 
+    result.bit_count = bit_count;
+
+    return result;
+};
+
+bitset_destroy :: (bitset: *Bitset)
+{
+    free(bitset.bits.data);
+}
+
+bitset_popcount :: (bitset: *Bitset) -> s32 
+{
+    result: s32;
+    for element: bitset.bits
+    {
+        result += popcount(element);
+    }
+
+    return result;
+}
+
+bitset_combine :: (A: Bitset, B: Bitset) -> Bitset
+{
+    assert(A.bit_count == B.bit_count);
+
+    result: Bitset = bitset_create(A.bit_count);
+    for index: 0..A.bits.count - 1
+    {
+        result.bits[index] = (A.bits[index] & B.bits[index]);
+    }
+
+    return result;
+}
+
+bitset_set_bit :: (bitset: *Bitset, index: s64)
+{
+    assert(index < bitset.bit_count);
+    bitset.bits[index >> 6] |= (cast(u64)(1 << (index & 63)));
+}
+
+bitset_clear_bit :: (bitset: *Bitset, index: s64)
+{
+    assert(index < bitset.bit_count);
+    bitset.bits[index >> 6] &= ~(cast(u64)(1 << (index & 63)));
+}
+
+bitset_toggle_bit :: (bitset: *Bitset, index: s64)
+{
+    assert(index < bitset.bit_count);
+    bitset.bits[index >> 6] ^= (cast(u64)(1 << (index & 63)));
+}
+
+bitset_check_bit :: (bitset: *Bitset, index: s64) -> bool
+{
+    return (((bitset.bits[index >> 6]) & (xx(1 << (index & 63)))) != 0);
+}
+
+operator != :: (A: Bitset, B: Bitset) -> bool
+{
+    if A.bit_count != B.bit_count return true;
+    for index: 0..A.bits.count - 1
+    {
+        if A.bits[index] != B.bits[index] return true;
+    }
+
+    return false;
+}
+
+////////////////////////
+// WFC MAP GENERATION
+////////////////////////
 
 using Directions :: enum u8
 {
@@ -25,21 +120,16 @@ WFC_Cell :: struct
 {
     is_collapsed : bool;
     entropy      : u32;
-    union
-    {
-        cell_value : u32;
-        cell_mask  : u32;
-    };
+
+    cell_mask    : Bitset;
+    cell_value   : u32;
 };
 
 WFC_Module :: struct
 {
     sprite      : Atlas_Sprite;
-    constraints : [Directions.COUNT]u32;
+    constraints : [Directions.COUNT]Bitset;
     weight      : float32;
-
-    // NOTE(Sleepster): This is used for access on module generation.
-    hash_value  : s64 = -1;
 };
 
 WFC_Gen_Chunk :: struct
@@ -71,10 +161,11 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
             cell.is_collapsed = false;
             cell.cell_value   = 0;
             cell.entropy      = xx modules.count;
+            cell.cell_mask    = bitset_create(modules.count);
 
             for module_index: 0..modules.count - 1
             {
-                cell.cell_mask  |= BIT(xx module_index);
+                bitset_set_bit(*cell.cell_mask, module_index);
             }
         }
     }
@@ -96,14 +187,14 @@ WFC_propagate :: (chunk_data    : *WFC_Gen_Chunk,
         // check if each module is supported in the neighbor cell's domain
         for module_index: 0..chunk_modules.count - 1
         {
-            if (primary_cell.cell_mask & (1 << module_index))
+            if bitset_check_bit(*primary_cell.cell_mask, module_index)
             {
                 supported: bool;
                 for rule_index: 0..chunk_modules.count - 1
                 {
-                    if neighbor_cell.cell_mask & (1 << rule_index)
+                    if bitset_check_bit(*neighbor_cell.cell_mask, rule_index)
                     {
-                        if chunk_modules[module_index].constraints[neighbor_dir] & (1 << rule_index)
+                        if bitset_check_bit(*chunk_modules[module_index].constraints[neighbor_dir], rule_index)
                         {
                             supported = true;
                             break;
@@ -113,7 +204,7 @@ WFC_propagate :: (chunk_data    : *WFC_Gen_Chunk,
 
                 if !supported
                 {
-                    primary_cell.cell_mask &= ~(cast(u32)(1 << module_index));
+                    bitset_clear_bit(*primary_cell.cell_mask, module_index);
                     result = true;
                 }
             }
@@ -124,8 +215,9 @@ WFC_propagate :: (chunk_data    : *WFC_Gen_Chunk,
         module                 := neighbor_cell.cell_value;
         allowed_mask           := chunk_modules[module].constraints[opposite_dir];
         original_mask          := primary_cell.cell_mask;
-        primary_cell.cell_mask &= allowed_mask;
 
+        // NOTE(Sleepster): I know this is a MAJOR LEAK, but I don't care. Arenas will fix it.
+        primary_cell.cell_mask  = bitset_combine(primary_cell.cell_mask, allowed_mask);
         if primary_cell.cell_mask != original_mask
         {
             result = true;
@@ -182,7 +274,7 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
         }
 
         // all cells have been collapsed
-        if lowest_entropy == chunk_modules.count + 1
+        if lowest_entropy == chunk_modules.count +1
         {
             log("[INFO]: WFC GENERATION COMPLETED...\n");
             break;
@@ -202,7 +294,7 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
         cell_module_counter: u32 = 0;
         for bit_index: 0..chunk_modules.count - 1
         {
-            if cell.cell_mask & (1 << bit_index)
+            if bitset_check_bit(*cell.cell_mask, bit_index)
             {
                 cell_modules[cell_module_counter] = cast(u32)bit_index;
                 cell_module_counter += 1;
@@ -280,7 +372,7 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                             south_neighbor := *chunk_grid[x_index][y_index - 1];
                             propagated = WFC_propagate(gen_chunk, cell, south_neighbor, SOUTH, NORTH);
                         }
-                        cell.entropy = cast(u32)(popcount(cell.cell_mask));
+                        cell.entropy = cast(u32)(bitset_popcount(*cell.cell_mask));
 
                         // TODO(Sleepster): we have failed... 
                         if cell.entropy == 0
@@ -331,6 +423,33 @@ WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
 // AUTOMATIC STM MODULE GENERATION
 /////////////////////////////////////
 
+WFC_Module_Neighbor_Data :: struct
+{
+    hash_indices : []u32;
+    count        : u32;
+};
+
+WFC_Generator_Module :: struct
+{
+    neighbors  : [COUNT]WFC_Module_Neighbor_Data;
+    weight     : float32;
+    hash_value : s64 = -1;
+};
+
+WFC_Generator :: struct
+{
+    module_hash         : []WFC_Generator_Module;
+    unique_module_count : u32;
+};
+
+add_module_to_neighbor_list :: (primary: *WFC_Generator_Module, neighbor: *WFC_Generator_Module, dir: Directions)
+{
+    neighbor_data := *primary.neighbors[dir];
+
+    neighbor_data.hash_indices[neighbor_data.count] = xx neighbor.hash_value;
+    neighbor_data.count += 1;
+}
+
 WFC_analyze :: (arena: *Memory_Arena)
 {
     texture := asset_load_texture_from_path(example_image_filepath);
@@ -340,8 +459,10 @@ WFC_analyze :: (arena: *Memory_Arena)
     grid_height := texture.height / tile_size.y;
 
     scratch := begin_temporary_block(arena);
-    module_hash := push_array(arena, WFC_Module, xx (grid_width * grid_height));
-    for *module: module_hash
+
+    WFC_gen_data: WFC_Generator;
+    WFC_gen_data.module_hash = push_array(arena, WFC_Generator_Module, xx (grid_width * grid_height));
+    for *module: WFC_gen_data.module_hash
     {
         module.hash_value = -1;
     }
@@ -354,6 +475,7 @@ WFC_analyze :: (arena: *Memory_Arena)
     }
 
     // hash
+    WFC_gen_data.unique_module_count = 0;
     for grid_x: 0..grid_width - 1
     {
         for grid_y: 0..grid_height - 1
@@ -375,59 +497,103 @@ WFC_analyze :: (arena: *Memory_Arena)
                 }
             }
 
-            hash_index    := (hash_value % xx module_hash.count);
+            hash_index    := (hash_value % xx WFC_gen_data.module_hash.count);
             log("HASH INDEX: '%', grid pos: {%, %}\n", hash_index, grid_x, grid_y);
             
-            hashed_module := *module_hash[hash_index];
+            hashed_module := *WFC_gen_data.module_hash[hash_index];
+            hashed_module.weight += 0.01;
             if hashed_module.hash_value == -1 
             {
                 hashed_module.hash_value = xx hash_index;
+                WFC_gen_data.unique_module_count += 1;
             }
 
             module_grid[grid_x][grid_y] = xx hash_index;
         }
     }
 
+    // init neighbor list
+    for *module: WFC_gen_data.module_hash
+    {
+        if module.hash_value != -1
+        {
+            module.neighbors[NORTH].hash_indices = push_array(arena, u32, WFC_gen_data.unique_module_count);
+            module.neighbors[SOUTH].hash_indices = push_array(arena, u32, WFC_gen_data.unique_module_count);
+            module.neighbors[EAST].hash_indices  = push_array(arena, u32, WFC_gen_data.unique_module_count);
+            module.neighbors[WEST].hash_indices  = push_array(arena, u32, WFC_gen_data.unique_module_count);
+        }
+    }
+    
     // analysis
     for x: 0..grid_width - 1
     {
         for y: 0..grid_height - 1
         {
-            grid_value := module_grid[x][y];
+            grid_value     := module_grid[x][y];
+            primary_module := *WFC_gen_data.module_hash[grid_value];
+            
             //check east
             if x + 1 < grid_width
             {
-                east_neighbor := module_grid[x + 1][y];
-                module := *module_hash[east_neighbor];
+                east_neighbor   := module_grid[x + 1][y];
+                neighbor_module := *WFC_gen_data.module_hash[east_neighbor];
+                add_module_to_neighbor_list(primary_module, neighbor_module, EAST);
             }
 
             //check west
             if x - 1 >= 0
             {
                 west_neighbor := module_grid[x - 1][y];
-                module := *module_hash[west_neighbor];
+                neighbor_module := *WFC_gen_data.module_hash[west_neighbor];
+                add_module_to_neighbor_list(primary_module, neighbor_module, WEST);
             }
 
             //check north
             if y + 1 < grid_height
             { 
                 north_neighbor := module_grid[x][y + 1];
-                module := *module_hash[north_neighbor];
+                neighbor_module := *WFC_gen_data.module_hash[north_neighbor];
+                add_module_to_neighbor_list(primary_module, neighbor_module, NORTH);
             }
 
             //check south
             if y - 1 >= 0
             {
                 south_neighbor := module_grid[x][y - 1];
-                module := *module_hash[south_neighbor];
+                neighbor_module := *WFC_gen_data.module_hash[south_neighbor];
+                add_module_to_neighbor_list(primary_module, neighbor_module, SOUTH);
             }
         }
     }
 
+    for *module: WFC_gen_data.module_hash
+    {
+        if module.hash_value != -1
+        {
+            for neighbor_list: module.neighbors
+            {
+                if neighbor_list.count > 0
+                {
+                    log("Module '%' has the following neighbors: ", module.hash_value);
+                    for index: 0..neighbor_list.count - 1
+                    {
+                        log("%", neighbor_list.hash_indices[index]);
+                    }
+                    log("\n\n");
+                }
+            }
+        }
+    }
+
+    resulting_modules := push_array(arena, WFC_Module, WFC_gen_data.unique_module_count);
+    for *module: resulting_modules
+    {
+    }
+    
     end_temporary_block(*scratch);
 }
 
 #scope_file
-example_image_filepath : string = "../data/res/textures/OLM_test_input.png";
+example_image_filepath : string   = "../data/res/textures/OLM_test_input.png";
 tile_size              : iVector2 = .{16, 16};
 
