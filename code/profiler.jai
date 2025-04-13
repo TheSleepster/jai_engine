@@ -65,6 +65,26 @@ DEBUG_report_timing_info :: ()
     }
 }
 
+DEBUG_stop_and_report :: (timer: *DEBUG_profile_timer)
+{
+    DEBUG_stop_profile(timer);
+
+    time_in_ms := cast(float32)(timer.delta_tsc * 100 / cast(float32)perf_count_frequency);
+
+    print("[DEBUG]: -----TIMER_STATS-----\n");
+    print("         FUNCTION:   %\n", timer.label);
+    print("         TIME IN MS: %ms\n", time_in_ms);
+    print("         CYCLES:     %\n\n",   timer.delta_tsc);
+}
+
+DEBUG_profile_and_report :: (loc := #caller_location) #expand
+{
+    timer := DEBUG_init_new_timer(#procedure_name(), loc);
+    DEBUG_start_profile(timer);
+
+    `defer DEBUG_stop_and_report(timer);
+}
+
 #scope_file 
 DEBUG_timers: [1024]DEBUG_profile_timer;
 

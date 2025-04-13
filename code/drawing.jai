@@ -68,7 +68,7 @@ create_draw_quad :: (draw_frame          : *Draw_Frame_Data,
     left   := position.x;
     right  := position.x + render_size.x;
     
-    quad : Render_Quad;
+    quad: Render_Quad;
     quad.top_left.vPosition     = make_vector4(.{left, top}, 0, 1);
     quad.bottom_right.vPosition = make_vector4(.{right, bottom}, 0, 1);
     quad.top_right.vPosition    = make_vector4(.{right, top}, 0, 1);
@@ -208,7 +208,7 @@ draw_quad_xform :: (draw_frame    : *Draw_Frame_Data,
         sprite = *null_sprite;
         if sprite.atlas_texture == null return null;
     }
-    world_position : Vector4 = xform.v[3];
+    world_position: Vector4 = xform.v[3];
     render_quad := create_draw_quad(draw_frame,
                                     world_position.xy,
                                     .{1, 1},

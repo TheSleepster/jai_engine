@@ -13,6 +13,8 @@ TODO:
 
   - [ ] Compress the options so that they also store a rotation??
 
+  - [ ] Create a queue for the propagation code rather than what we're doing now. (slow) 
+
   - [ ] A* path finding to tie the rooms together
 
   - [ ] Path contraints?
@@ -56,17 +58,13 @@ bitset_popcount :: (bitset: *Bitset) -> s32
     return result;
 }
 
-bitset_combine :: (A: Bitset, B: Bitset) -> Bitset
+bitset_combine :: (A: *Bitset, B: Bitset)
 {
     assert(A.bit_count == B.bit_count);
-
-    result: Bitset = bitset_create(A.bit_count);
     for index: 0..A.bits.count - 1
     {
-        result.bits[index] = (A.bits[index] & B.bits[index]);
+        A.bits[index] &= B.bits[index];
     }
-
-    return result;
 }
 
 bitset_set_bit :: (bitset: *Bitset, index: s64)
@@ -90,6 +88,14 @@ bitset_toggle_bit :: (bitset: *Bitset, index: s64)
 bitset_check_bit :: (bitset: *Bitset, index: s64) -> bool
 {
     return (((bitset.bits[index >> 6]) & (xx(1 << (index & 63)))) != 0);
+}
+
+bitset_clear :: (bitset: *Bitset)
+{
+    for 0..bitset.bits.count - 1
+    {
+        bitset.bits[it] = 0;
+    }
 }
 
 operator != :: (A: Bitset, B: Bitset) -> bool
@@ -146,10 +152,10 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
     new_chunk.chunk_size    = chunk_size;
     new_chunk.chunk_modules = modules;
 
-    new_chunk.chunk_grid = push_array(arena, []WFC_Cell, xx chunk_size.x);
+    new_chunk.chunk_grid = NewArray(xx chunk_size.x, []WFC_Cell);
     for x: 0..chunk_size.x - 1
     {
-        new_chunk.chunk_grid[x] = push_array(arena, WFC_Cell, xx chunk_size.y);
+        new_chunk.chunk_grid[x] = NewArray(xx chunk_size.y, WFC_Cell);
     }
 
     for x: 0..chunk_size.x - 1
@@ -173,6 +179,16 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
     return new_chunk;
 }
 
+WFC_delete_chunk :: (using chunk: *WFC_Gen_Chunk)
+{
+    for x: 0..chunk_size.x - 1
+    {
+        array_free(chunk_grid[x]);
+    }
+    array_free(chunk_grid);
+}
+
+// NOTE(Sleepster): This is REALLLLLLLLLLLLLLLLLLLLLLLLLLLY SLOW
 WFC_propagate :: (chunk_data    : *WFC_Gen_Chunk,
                   primary_cell  : *WFC_Cell,
                   neighbor_cell : *WFC_Cell,
@@ -215,9 +231,7 @@ WFC_propagate :: (chunk_data    : *WFC_Gen_Chunk,
         module                 := neighbor_cell.cell_value;
         allowed_mask           := chunk_modules[module].constraints[opposite_dir];
         original_mask          := primary_cell.cell_mask;
-
-        // NOTE(Sleepster): I know this is a MAJOR LEAK, but I don't care. Arenas will fix it.
-        primary_cell.cell_mask  = bitset_combine(primary_cell.cell_mask, allowed_mask);
+        bitset_combine(*primary_cell.cell_mask, allowed_mask);
         if primary_cell.cell_mask != original_mask
         {
             result = true;
@@ -229,6 +243,8 @@ WFC_propagate :: (chunk_data    : *WFC_Gen_Chunk,
 
 WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 {
+    DEBUG_profile_and_report();
+
     using gen_chunk;
     fail_chunk: WFC_Gen_Chunk;
     fail_chunk = gen_chunk.*;
@@ -373,13 +389,45 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                             propagated = WFC_propagate(gen_chunk, cell, south_neighbor, SOUTH, NORTH);
                         }
                         cell.entropy = cast(u32)(bitset_popcount(*cell.cell_mask));
+                        //log("Cell [%, %] entropy: %\n", x_index, y_index, cell.entropy);
+
+                        //fail_cell := fail_chunk.chunk_grid[x_index][y_index];
+                        //log("Fail Cell [%, %] entropy: %\n", x_index, y_index, fail_cell.entropy);
+                        
 
                         // TODO(Sleepster): we have failed... 
                         if cell.entropy == 0
                         {
-                            log("[ERROR]: Generation has failed... Retrying...");
+                            log("[ERROR]: Generation has failed... Resetting...");
 
-                            gen_chunk.* = fail_chunk;
+                            #if 0
+                            {
+                                // NOTE(Sleepster): We can't end_temporary_block because of this reallocation.
+                                //                  We need to figure out what we can do about this...
+                                new_chunk := WFC_new_chunk(arena, gen_chunk.chunk_size, gen_chunk.chunk_modules);
+                                WFC_delete_chunk(gen_chunk);
+                                gen_chunk.* = new_chunk;
+                            }
+
+                            // NOTE(Sleepster): Resetting in place.
+                            for x: 0..chunk_size.x - 1
+                            {
+                                for y: 0..chunk_size.y - 1
+                                {
+                                    cell := *gen_chunk.chunk_grid[x][y];
+                                    
+                                    cell.is_collapsed = false;
+                                    cell.cell_value   = 0;
+                                    cell.entropy      = xx chunk_modules.count;
+
+                                    bitset_clear(*cell.cell_mask);
+                                    for module_index: 0..chunk_modules.count - 1
+                                    {
+                                        bitset_set_bit(*cell.cell_mask, module_index);
+                                    }
+                                }
+                            }
+
                             WFC_generate(arena, gen_chunk);
                         }
                     }
@@ -391,6 +439,7 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
             }
         }
     }
+
     end_temporary_block(*scratch_arena);
 }
 

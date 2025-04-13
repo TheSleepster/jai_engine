@@ -28,7 +28,7 @@ TODO:
     platform_allocate_memory :: inline (size: u64) -> *void
     {
         data := alloc(xx size);
-        log("alloc called with a size of: '%'\n", size);
+        log("alloc called with a size of: %mb\n", cast(float32)(size / 1048576.0));
         return data;
     }
 

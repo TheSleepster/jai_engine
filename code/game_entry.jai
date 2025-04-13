@@ -322,7 +322,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // FLOOR 
         modules[5].sprite = subsprite(sprite_WFC_input, .{16, 16}, .{-32, -32});
-        modules[5].weight = 25.0;
+        modules[5].weight = 10.0;
         for *constraint: modules[5].constraints
         {
             constraint.* = bitset_create(modules.count);
