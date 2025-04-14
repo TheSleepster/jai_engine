@@ -11,14 +11,17 @@
             "id": "16346a7832f93eaa",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "canvas",
               "state": {
-                "file": "World Generation/Wave Function Collapse.md",
-                "mode": "source",
-                "source": false
+                "file": "Game Stuff/Enter the Gungeon/Untitled.canvas",
+                "viewState": {
+                  "x": -418.4400289922216,
+                  "y": 115.78642347367207,
+                  "zoom": -0.40000000000000013
+                }
               },
-              "icon": "lucide-file",
-              "title": "Wave Function Collapse"
+              "icon": "lucide-layout-dashboard",
+              "title": "Untitled"
             }
           }
         ]
@@ -166,8 +169,17 @@
   },
   "active": "16346a7832f93eaa",
   "lastOpenFiles": [
-    "World Generation/Scene Graphs.md",
+    "Game Stuff/survival/Planned Game Features.md",
+    "Game Stuff/Enter the Gungeon/Untitled.canvas",
+    "Game Stuff/Enter the Gungeon/Untitled",
+    "Game Stuff/survival/Survival Craft game.md",
+    "Game Stuff/survival/Tunneler.canvas",
+    "Game Stuff/survival",
+    "Game Stuff/survival/TODO.md",
+    "World Generation/Arc Consistency.md",
+    "Game Stuff/Enter the Gungeon",
     "World Generation/Wave Function Collapse.md",
+    "World Generation/Scene Graphs.md",
     "OpenGL/Projects/Asteroids.md",
     "OpenGL/Projects/Handmade OpenGL Win32.md",
     "OpenGL/Projects/Vampire survivors clone.md",
@@ -178,9 +190,6 @@
     "OpenGL/Archives/OpenGL Basics/Graphics Pipline/Shader Files.md",
     "OpenGL/Archives/OpenGL Basics/Graphics Pipline/IBOs.md",
     "OpenGL/Archives/OpenGL Basics/Graphics Pipline/Graphics Rendering Pipeline.md",
-    "Survival/Planned Game Features.md",
-    "Survival/Survival Craft game.md",
-    "Survival/TODO.md",
     "Images/constrained.gif",
     "Images/Pasted image 20250402165833.png",
     "Images/Pasted image 20250402162407.png",
@@ -192,11 +201,10 @@
     "Images/Pasted image 20250402155904.png",
     "Images/Pasted image 20250402155822.png",
     "World Generation",
-    "Survival/Tunneler.canvas",
     "Untitled.canvas",
     "Untitled 2.canvas",
     "Untitled 1.canvas",
-    "Survival",
+    "Game Stuff",
     "OpenGL/Projects/Engine Dev.md",
     "OpenGL/Projects/Level Editor.md",
     "OpenGL/Projects/Shift!.md",

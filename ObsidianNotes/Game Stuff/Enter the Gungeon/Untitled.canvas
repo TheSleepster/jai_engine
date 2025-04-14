@@ -1,0 +1,7 @@
+{
+	"nodes":[
+		{"id":"946ddd5cbac6c47d","x":-240,"y":-380,"width":600,"height":260,"type":"text","text":"# Inspiration\n\nThe inspritation for this game is a \"clone\" of Enter The Gungeon. The reason for the \"\" is that the actual game will be much different, I'm thinking like JDH's Sorcerer Squad. "},
+		{"id":"376eb025e27b5653","x":-240,"y":-100,"width":600,"height":580,"type":"text","text":"# Dungeon generation\n\nThe dungeon generation is really the only thing we are stealing from ETG. \n\nI like the way that ETG generates it's levels and the dynamic gameplay that stems from thier handling of generation. However I would like my game to be EVEN more dynamic. Generating levels in the traditional way but use Wave Function collapse to make each generated room unique and interesting. \n"}
+	],
+	"edges":[]
+}
