@@ -393,15 +393,6 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                             // failure
                             log("[ERROR]: Generation has failed... Resetting...");
 
-                            #if 0
-                            {
-                                // NOTE(Sleepster): We can't end_temporary_block because of this reallocation.
-                                //                  We need to figure out what we can do about this...
-                                new_chunk := WFC_new_chunk(arena, gen_chunk.chunk_size, gen_chunk.chunk_modules);
-                                WFC_delete_chunk(gen_chunk);
-                                gen_chunk.* = new_chunk;
-                            }
-
                             // NOTE(Sleepster): Resetting in place.
                             for x: 0..chunk_size.x - 1
                             {
@@ -652,7 +643,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
         }
 
         // propagate the collapse
-        while arc_queue.queue_count 
+        while arc_queue.queue_count != 0 
         {
             // remove an item from the queue
             arc := arc_queue.arc_list[arc_queue.queue_count - 1];
