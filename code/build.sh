@@ -1,7 +1,7 @@
 #!/bin/bash
 
 pushd ../build
-../../bin/jai-linux ../code/main.jai -llvm -natvis -very_debug - no_inline -output_path../../build/
+../../../.jai/bin/jai-linux ../code/main.jai -llvm -natvis -very_debug - no_inline -output_path../../build/
 
 # Check for compilation success
 if [ $? -ne 0 ]; then

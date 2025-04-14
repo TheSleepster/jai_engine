@@ -30,13 +30,13 @@ Bitset :: struct
     bit_count : s64;
 }#no_padding;
 
-bitset_create :: (bit_count: s64) -> Bitset #must
+bitset_create :: (arena: *Memory_Arena, bit_count: s64) -> Bitset #must
 {
     // NOTE(Sleepster): assert you're not stupid...
     assert(bit_count > 0);
     
     result: Bitset;
-    result.bits      = NewArray((bit_count + 63) >> 6, u64); 
+    result.bits      = push_array(arena, u64, xx ((bit_count + 63) >> 6)); 
     result.bit_count = bit_count;
 
     return result;
@@ -127,6 +127,9 @@ WFC_Cell :: struct
     is_collapsed : bool;
     entropy      : u32;
 
+    cell_x       : s32;
+    cell_y       : s32;
+
     cell_mask    : Bitset;
     cell_value   : u32;
 };
@@ -152,10 +155,10 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
     new_chunk.chunk_size    = chunk_size;
     new_chunk.chunk_modules = modules;
 
-    new_chunk.chunk_grid = NewArray(xx chunk_size.x, []WFC_Cell);
+    new_chunk.chunk_grid = push_array(arena, []WFC_Cell, xx chunk_size.x);
     for x: 0..chunk_size.x - 1
     {
-        new_chunk.chunk_grid[x] = NewArray(xx chunk_size.y, WFC_Cell);
+        new_chunk.chunk_grid[x] = push_array(arena, WFC_Cell, xx chunk_size.y);
     }
 
     for x: 0..chunk_size.x - 1
@@ -167,7 +170,10 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
             cell.is_collapsed = false;
             cell.cell_value   = 0;
             cell.entropy      = xx modules.count;
-            cell.cell_mask    = bitset_create(modules.count);
+            cell.cell_mask    = bitset_create(arena, modules.count);
+
+            cell.cell_x       = x;
+            cell.cell_y       = y;
 
             for module_index: 0..modules.count - 1
             {
@@ -179,21 +185,16 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
     return new_chunk;
 }
 
-WFC_delete_chunk :: (using chunk: *WFC_Gen_Chunk)
-{
-    for x: 0..chunk_size.x - 1
-    {
-        array_free(chunk_grid[x]);
-    }
-    array_free(chunk_grid);
-}
+//////////////////////////
+// AC-1 WORLD GENERATION
+//////////////////////////
 
-// NOTE(Sleepster): This is REALLLLLLLLLLLLLLLLLLLLLLLLLLLY SLOW
-WFC_propagate :: (chunk_data    : *WFC_Gen_Chunk,
-                  primary_cell  : *WFC_Cell,
-                  neighbor_cell : *WFC_Cell,
-                  neighbor_dir  : Directions,
-                  opposite_dir  : Directions) -> bool
+
+WFC_propagate_AC1 :: (chunk_data    : *WFC_Gen_Chunk,
+                      primary_cell  : *WFC_Cell,
+                      neighbor_cell : *WFC_Cell,
+                      neighbor_dir  : Directions,
+                      opposite_dir  : Directions) -> bool
 {
     using chunk_data;
     result: bool;
@@ -241,14 +242,11 @@ WFC_propagate :: (chunk_data    : *WFC_Gen_Chunk,
     return result;
 }
 
-WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
+WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 {
     DEBUG_profile_and_report();
-
     using gen_chunk;
-    fail_chunk: WFC_Gen_Chunk;
-    fail_chunk = gen_chunk.*;
-    
+
     scratch_arena := begin_temporary_block(arena);
     while true
     {
@@ -290,7 +288,7 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
         }
 
         // all cells have been collapsed
-        if lowest_entropy == chunk_modules.count +1
+        if lowest_entropy == chunk_modules.count + 1
         {
             log("[INFO]: WFC GENERATION COMPLETED...\n");
             break;
@@ -365,39 +363,34 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                         if x_index + 1 < chunk_size.x
                         {
                             east_neighbor := *chunk_grid[x_index + 1][y_index];
-                            propagated = WFC_propagate(gen_chunk, cell, east_neighbor, EAST, WEST);
+                            propagated = WFC_propagate_AC1(gen_chunk, cell, east_neighbor, EAST, WEST);
                         }
 
                         //check west
                         if x_index - 1 >= 0
                         {
                             west_neighbor := *chunk_grid[x_index - 1][y_index];
-                            propagated = WFC_propagate(gen_chunk, cell, west_neighbor, WEST, EAST);
+                            propagated = WFC_propagate_AC1(gen_chunk, cell, west_neighbor, WEST, EAST);
                         }
 
                         //check north
                         if y_index + 1 < chunk_size.y
                         {
                             north_neighbor := *chunk_grid[x_index][y_index + 1];
-                            propagated = WFC_propagate(gen_chunk, cell, north_neighbor, NORTH, SOUTH);
+                            propagated = WFC_propagate_AC1(gen_chunk, cell, north_neighbor, NORTH, SOUTH);
                         }
 
                         //check south
                         if y_index - 1 >= 0
                         {
                             south_neighbor := *chunk_grid[x_index][y_index - 1];
-                            propagated = WFC_propagate(gen_chunk, cell, south_neighbor, SOUTH, NORTH);
+                            propagated = WFC_propagate_AC1(gen_chunk, cell, south_neighbor, SOUTH, NORTH);
                         }
+
                         cell.entropy = cast(u32)(bitset_popcount(*cell.cell_mask));
-                        //log("Cell [%, %] entropy: %\n", x_index, y_index, cell.entropy);
-
-                        //fail_cell := fail_chunk.chunk_grid[x_index][y_index];
-                        //log("Fail Cell [%, %] entropy: %\n", x_index, y_index, fail_cell.entropy);
-                        
-
-                        // TODO(Sleepster): we have failed... 
                         if cell.entropy == 0
                         {
+                            // failure
                             log("[ERROR]: Generation has failed... Resetting...");
 
                             #if 0
@@ -428,7 +421,7 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                                 }
                             }
 
-                            WFC_generate(arena, gen_chunk);
+                            WFC_generate_AC1(arena, gen_chunk);
                         }
                     }
                     else
@@ -442,6 +435,255 @@ WFC_generate :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 
     end_temporary_block(*scratch_arena);
 }
+
+//////////////////////////
+// AC-3 WORLD GENERATION
+//////////////////////////
+
+WFC_Arc :: struct
+{
+    module_A : *WFC_Cell;
+    module_B : *WFC_Cell;
+
+    // NOTE(Sleepster): A to B
+    arc_dir  : iVector2;
+};
+
+WFC_Arc_Queue :: struct
+{
+    arc_list    : []WFC_Arc;
+    queue_count : u32;
+};
+
+get_direction_from_vector :: inline (vector: iVector2) -> Directions
+{
+    result: Directions;
+    if vector.x != 0
+    {
+        result = ifx vector.x == 1 then EAST else WEST;
+    }
+    if vector.y != 0
+    {
+        result = ifx vector.y == 1 then NORTH else SOUTH;
+    }
+
+    return result;
+}
+
+get_opposite_vector :: inline (vector: iVector2) -> iVector2
+{
+    result: iVector2;
+    result.x = vector.x * -1;
+    result.y = vector.y * -1;
+
+    return result;
+}
+
+WFC_enqueue_arc :: (using arc_queue       : *WFC_Arc_Queue,
+                          cell            : *WFC_Cell,
+                          neighbor        : *WFC_Cell,
+                          neighbor_vector :  iVector2)
+{
+    main_arc     := cast(WFC_Arc).{cell, neighbor, neighbor_vector};
+    arc_list[queue_count]     = main_arc;
+
+    queue_count += 1;
+}
+
+WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
+{
+    DEBUG_profile_and_report();
+    using gen_chunk;
+
+    scratch_arena := begin_temporary_block(arena);
+    while true
+    {
+        to_collapse: []*WFC_Cell;
+        to_collapse.count = (chunk_size.x * chunk_size.y);
+        to_collapse.data  = push_size(arena, size_of(*WFC_Cell) * (chunk_size.x * chunk_size.y));
+        cell_count : u32;
+
+        // builds list of tiles to collapse
+        lowest_entropy := chunk_modules.count + 1;
+        for x_index: 0..chunk_size.x - 1
+        {
+            for y_index: 0..chunk_size.y - 1
+            {
+                current_cell := *chunk_grid[x_index][y_index];
+                if !current_cell.is_collapsed
+                {
+                    if current_cell.entropy < lowest_entropy
+                    {
+                        lowest_entropy = current_cell.entropy;
+                        cell_count = 0;
+                        for index: 0..to_collapse.count - 1
+                        {
+                            cell := *to_collapse[index];
+                            if cell.* != null
+                            {
+                                cell.* = null;
+                            }
+                        }
+                    }
+
+                    if current_cell.entropy == lowest_entropy
+                    {
+                        to_collapse[cell_count] = current_cell;
+                        cell_count += 1;
+                    }
+                }
+            }
+        }
+
+        // all cells have been collapsed
+        if lowest_entropy == chunk_modules.count + 1
+        {
+            log("[INFO]: WFC GENERATION COMPLETED...\n");
+            break;
+        }
+
+        // picks cell from list
+        random_seed(*context.random_state, rdtsc());
+        index_to_pick := cast(u32)random_get_within_range(*context.random_state, 0, cast(float32)(cell_count - 1));
+
+        // collapse the cell
+        cell := to_collapse[index_to_pick];
+        cell_modules: []u32;
+
+        cell_modules.data  = push_size(arena, xx (size_of(u32) * chunk_modules.count));
+        cell_modules.count = chunk_modules.count;
+
+        cell_module_counter: u32 = 0;
+        for bit_index: 0..chunk_modules.count - 1
+        {
+            if bitset_check_bit(*cell.cell_mask, bit_index)
+            {
+                cell_modules[cell_module_counter] = cast(u32)bit_index;
+                cell_module_counter += 1;
+            }
+        }
+
+        total_weight: float32;
+        if cell_module_counter != 0
+        {
+            for index: 0..cell_module_counter - 1
+            {
+                total_weight += chunk_modules[cell_modules[index]].weight;
+            }
+        }
+        else
+        {
+            total_weight += chunk_modules[cell_modules[0]].weight;
+        }
+
+        collapsed_value   := random_get_within_range(*context.random_state, 0.0, total_weight);
+        cumulative_weight : float32;
+        selected_module   : u32;
+        for index: 0..cell_module_counter - 1
+        {
+            cumulative_weight += chunk_modules[cell_modules[index]].weight;
+            if collapsed_value <= cumulative_weight 
+            {
+                selected_module = cell_modules[index];
+                break;
+            }
+        }
+        
+        cell.is_collapsed = true;
+        cell.cell_value   = selected_module;
+        cell.entropy      = 1;
+
+        // build the arc queue
+        arc_queue: WFC_Arc_Queue;
+        arc_queue.arc_list = push_array(arena, WFC_Arc, xx (chunk_size.x * chunk_size.y));
+
+        cell_vectors: [4]iVector2;
+        cell_vectors[NORTH] = .{ 0,  1};
+        cell_vectors[SOUTH] = .{ 0, -1};
+        cell_vectors[EAST]  = .{ 1,  0};
+        cell_vectors[WEST]  = .{-1,  0};
+        for 0..4 - 1
+        {
+            neighbor_x := cell.cell_x + cell_vectors[it].x;
+            neighbor_y := cell.cell_y + cell_vectors[it].y;
+
+            neighbor_vector := get_opposite_vector(cell_vectors[it]);
+            
+            if neighbor_x >= 0 && neighbor_x < gen_chunk.chunk_size.x &&
+               neighbor_y >= 0 && neighbor_y < gen_chunk.chunk_size.y
+            {
+                neighbor_cell := *chunk_grid[neighbor_x][neighbor_y];
+                WFC_enqueue_arc(*arc_queue, cell, neighbor_cell, cell_vectors[it]);
+            }
+        }
+
+        // propagate the collapse
+        while arc_queue.queue_count 
+        {
+            // remove an item from the queue
+            arc := arc_queue.arc_list[arc_queue.queue_count - 1];
+            arc_queue.queue_count -= 1;
+
+            if !arc.module_A.is_collapsed
+            {
+                dir          := get_direction_from_vector(arc.arc_dir);
+                opposite_dir := get_direction_from_vector(get_opposite_vector(arc.arc_dir));  
+
+                changed := WFC_propagate_AC1(gen_chunk, arc.module_A, arc.module_B, dir, opposite_dir);
+                arc.module_A.entropy = cast(u32)(bitset_popcount(*arc.module_A.cell_mask));
+                if arc.module_A.entropy == 0
+                {
+                    // failure
+                    log("[ERROR]: Generation has failed... Resetting...");
+
+                    // NOTE(Sleepster): Resetting in place.
+                    for x: 0..chunk_size.x - 1
+                    {
+                        for y: 0..chunk_size.y - 1
+                        {
+                            cell := *gen_chunk.chunk_grid[x][y];
+                            
+                            cell.is_collapsed = false;
+                            cell.cell_value   = 0;
+                            cell.entropy      = xx chunk_modules.count;
+
+                            bitset_clear(*cell.cell_mask);
+                            for module_index: 0..chunk_modules.count - 1
+                            {
+                                bitset_set_bit(*cell.cell_mask, module_index);
+                            }
+                        }
+                    }
+
+                    WFC_generate_AC3(arena, gen_chunk);
+                }
+
+                if changed
+                {
+                    for 0..4 - 1
+                    {
+                        neighbor_x := arc.module_B.cell_x + cell_vectors[it].x;
+                        neighbor_y := arc.module_B.cell_y + cell_vectors[it].y;
+
+                        neighbor_vector := get_opposite_vector(cell_vectors[it]);
+                        if neighbor_vector.x >= 0 && neighbor_vector.x < chunk_size.x &&
+                            neighbor_vector.y >= 0 && neighbor_vector.y < chunk_size.y
+                        {
+                            neighbor_cell := *chunk_grid[neighbor_x][neighbor_y];
+                            WFC_enqueue_arc(*arc_queue, arc.module_A, neighbor_cell, cell_vectors[it]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    end_temporary_block(*scratch_arena);
+}
+
+
+////////////////
+// RENDERERING
+////////////////
 
 WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
 {

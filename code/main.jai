@@ -159,7 +159,7 @@ main :: ()
                 // POOL INIT
                 {
                     game_memory.game_state =
-                        cast(*Game_State)bootstrap_allocate_struct(Game_State, offset_of(Game_State, #code game_arena));
+                        cast(*Game_State)bootstrap_allocate_struct(Game_State, offset_of(Game_State, #code game_arena), xx MB(100));
 
                     game_memory.transient_state =
                         cast(*Transient_State)bootstrap_allocate_struct(Transient_State, offset_of(Transient_State, #code tran_arena)); 

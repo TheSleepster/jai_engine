@@ -12,7 +12,7 @@ TODO:
     platform_allocate_memory :: inline (size: u64) -> *void
     {
         data := W.VirtualAlloc(null, xx size, W.MEM_COMMIT|W.MEM_RESERVE, W.PAGE_READWRITE);
-        log("Virtual alloc called with a size of: '%'\n", size);
+        log("[INFO]: Virtual alloc called with a size of: '%'\n", size);
         return data;
     }
 
@@ -28,7 +28,7 @@ TODO:
     platform_allocate_memory :: inline (size: u64) -> *void
     {
         data := alloc(xx size);
-        log("alloc called with a size of: %mb\n", cast(float32)(size / 1048576.0));
+        log("[INFO]: alloc called with a size of: %mb\n", cast(float32)(size / 1048576.0));
         return data;
     }
 
@@ -89,6 +89,7 @@ init_arena :: (base: *void, capacity: u64) -> Memory_Arena
 bootstrap_allocate_struct :: inline ($bootstrap: Type, offset: s64, minimum_block_size: u32 = 0) -> *bootstrap
 {
     bootstrap_arena: Memory_Arena;
+    bootstrap_arena.minimum_block_size = minimum_block_size;
     bootstrap_struct := push_struct(*bootstrap_arena, bootstrap);
 
     (cast(*Memory_Arena)(bootstrap_struct + offset)).* = bootstrap_arena;
