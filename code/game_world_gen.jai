@@ -420,7 +420,6 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                                     }
                                 }
                             }
-
                             WFC_generate_AC1(arena, gen_chunk);
                         }
                     }
@@ -442,8 +441,8 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 
 WFC_Arc :: struct
 {
-    module_A : *WFC_Cell;
-    module_B : *WFC_Cell;
+    domain_A : *WFC_Cell;
+    domain_B : *WFC_Cell;
 
     // NOTE(Sleepster): A to B
     arc_dir  : iVector2;
@@ -479,15 +478,49 @@ get_opposite_vector :: inline (vector: iVector2) -> iVector2
     return result;
 }
 
-WFC_enqueue_arc :: (using arc_queue       : *WFC_Arc_Queue,
-                          cell            : *WFC_Cell,
-                          neighbor        : *WFC_Cell,
-                          neighbor_vector :  iVector2)
+WFC_enqueue_arc :: inline (using arc_queue       : *WFC_Arc_Queue,
+                                 cell            : *WFC_Cell,
+                                 neighbor        : *WFC_Cell,
+                                 neighbor_vector :  iVector2)
 {
-    main_arc     := cast(WFC_Arc).{cell, neighbor, neighbor_vector};
-    arc_list[queue_count]     = main_arc;
+    main_arc             := cast(WFC_Arc).{cell, neighbor, neighbor_vector};
+    arc_list[queue_count] = main_arc;
 
     queue_count += 1;
+}
+
+WFC_revise_domain :: (chunk_data     : *WFC_Gen_Chunk,
+                      neighbor_cell  : *WFC_Cell,
+                      collapsed_cell : *WFC_Cell,
+                      arc_dir        :  Directions) -> bool
+{
+    if neighbor_cell.is_collapsed return false;
+    changes_made := false;
+
+    for module: 0..chunk_data.chunk_modules.count - 1
+    {
+        if bitset_check_bit(*neighbor_cell.cell_mask, module)
+        {
+            supported := false;
+            for bit_index: 0..chunk_data.chunk_modules.count - 1
+            {
+                if bitset_check_bit(*collapsed_cell.cell_mask, bit_index)
+                {
+                    if bitset_check_bit(*chunk_data.chunk_modules[module].constraints[arc_dir], bit_index)
+                    {
+                        supported = true;
+                        break;
+                    }
+                }
+            }
+            if !supported
+            {
+                bitset_clear_bit(*neighbor_cell.cell_mask, module);
+                changes_made = true;
+            }
+        }
+    }
+    return changes_made;
 }
 
 WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
@@ -592,6 +625,8 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
         cell.is_collapsed = true;
         cell.cell_value   = selected_module;
         cell.entropy      = 1;
+        bitset_clear(*cell.cell_mask);
+        bitset_set_bit(*cell.cell_mask, selected_module);
 
         // build the arc queue
         arc_queue: WFC_Arc_Queue;
@@ -608,12 +643,11 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
             neighbor_y := cell.cell_y + cell_vectors[it].y;
 
             neighbor_vector := get_opposite_vector(cell_vectors[it]);
-            
             if neighbor_x >= 0 && neighbor_x < gen_chunk.chunk_size.x &&
                neighbor_y >= 0 && neighbor_y < gen_chunk.chunk_size.y
             {
                 neighbor_cell := *chunk_grid[neighbor_x][neighbor_y];
-                WFC_enqueue_arc(*arc_queue, cell, neighbor_cell, cell_vectors[it]);
+                WFC_enqueue_arc(*arc_queue, neighbor_cell, cell, neighbor_vector);
             }
         }
 
@@ -624,14 +658,15 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
             arc := arc_queue.arc_list[arc_queue.queue_count - 1];
             arc_queue.queue_count -= 1;
 
-            if !arc.module_A.is_collapsed
+            if !arc.domain_A.is_collapsed
             {
                 dir          := get_direction_from_vector(arc.arc_dir);
                 opposite_dir := get_direction_from_vector(get_opposite_vector(arc.arc_dir));  
 
-                changed := WFC_propagate_AC1(gen_chunk, arc.module_A, arc.module_B, dir, opposite_dir);
-                arc.module_A.entropy = cast(u32)(bitset_popcount(*arc.module_A.cell_mask));
-                if arc.module_A.entropy == 0
+                // Module A is the neighbor, Module B is the collapsed cell
+                changed := WFC_revise_domain(gen_chunk, arc.domain_A, arc.domain_B, dir);
+                arc.domain_A.entropy = cast(u32)(bitset_popcount(*arc.domain_A.cell_mask));
+                if arc.domain_A.entropy == 0
                 {
                     // failure
                     log("[ERROR]: Generation has failed... Resetting...");
@@ -655,6 +690,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                         }
                     }
 
+                    //end_temporary_block(*scratch_arena);
                     WFC_generate_AC3(arena, gen_chunk);
                 }
 
@@ -662,15 +698,15 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                 {
                     for 0..4 - 1
                     {
-                        neighbor_x := arc.module_B.cell_x + cell_vectors[it].x;
-                        neighbor_y := arc.module_B.cell_y + cell_vectors[it].y;
+                        neighbor_x := arc.domain_A.cell_x + cell_vectors[it].x;
+                        neighbor_y := arc.domain_A.cell_y + cell_vectors[it].y;
 
                         neighbor_vector := get_opposite_vector(cell_vectors[it]);
-                        if neighbor_vector.x >= 0 && neighbor_vector.x < chunk_size.x &&
-                            neighbor_vector.y >= 0 && neighbor_vector.y < chunk_size.y
+                        if neighbor_x  >= 0 && neighbor_x < gen_chunk.chunk_size.x &&
+                            neighbor_y >= 0 && neighbor_y < gen_chunk.chunk_size.y
                         {
                             neighbor_cell := *chunk_grid[neighbor_x][neighbor_y];
-                            WFC_enqueue_arc(*arc_queue, arc.module_A, neighbor_cell, cell_vectors[it]);
+                            WFC_enqueue_arc(*arc_queue, neighbor_cell, arc.domain_A, neighbor_vector);
                         }
                     }
                 }
