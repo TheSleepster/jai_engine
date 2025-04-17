@@ -3,7 +3,7 @@
 #import "Default_Metaprogram";
 
 //
-// String added via add_build_string() from /home/justin/Documents/personal/jai/modules/Metaprogram_Plugins.jai:66.
+// String added via add_build_string() from /home/justin/.jai/modules/Metaprogram_Plugins.jai:66.
 //
 PLUGIN_INIT_STRING :: #string DONE
         Plugin_0 :: #import "Check";
@@ -14,7 +14,7 @@ PLUGIN_INIT_STRING :: #string DONE
 DONE
 
 //
-// #insert text. Generated from /home/justin/Documents/personal/jai/modules/Metaprogram_Plugins.jai:86.
+// #insert text. Generated from /home/justin/.jai/modules/Metaprogram_Plugins.jai:86.
 //
         Plugin_0 :: #import "Check";
         p_0: *Metaprogram_Plugin = Plugin_0.get_plugin();

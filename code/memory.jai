@@ -1,18 +1,10 @@
-/*
-TODO:
-    - There's a big ass leak here somewhere I think... find it.
-
-*/
-
-
-
 #if OS == .WINDOWS
 {
     W :: #import "Windows";
     platform_allocate_memory :: inline (size: u64) -> *void
     {
         data := W.VirtualAlloc(null, xx size, W.MEM_COMMIT|W.MEM_RESERVE, W.PAGE_READWRITE);
-        log("[INFO]: Virtual alloc called with a size of: '%'\n", size);
+        log("[INFO]: Virtual alloc called with a size of: %mb\n", cast(float32)(size / 1048576.0));
         return data;
     }
 
@@ -211,11 +203,10 @@ end_temporary_block :: (scratch: *Scratch_Arena)
     }
 
     assert(arena.used >= scratch.memory_used);
-    assert(arena.scratch_count > 0);
 
     arena.used = scratch.memory_used;
     arena.base = scratch.parent_base;
-    arena -= 1;
+    arena.scratch_count -= 1;
 }
 
 reset_arena :: (arena: *Memory_Arena)

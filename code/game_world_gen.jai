@@ -24,9 +24,11 @@ TODO:
 // BITSET DATA
 ////////////////
 
+MAX_BITSET :: 10;
+
 Bitset :: struct
 {
-    bits      : []u64;
+    bits      : [MAX_BITSET]u64;
     bit_count : s64;
 }#no_padding;
 
@@ -36,7 +38,6 @@ bitset_create :: (arena: *Memory_Arena, bit_count: s64) -> Bitset #must
     assert(bit_count > 0);
     
     result: Bitset;
-    result.bits      = push_array(arena, u64, xx ((bit_count + 63) >> 6)); 
     result.bit_count = bit_count;
 
     return result;
@@ -45,26 +46,6 @@ bitset_create :: (arena: *Memory_Arena, bit_count: s64) -> Bitset #must
 bitset_destroy :: (bitset: *Bitset)
 {
     free(bitset.bits.data);
-}
-
-bitset_popcount :: (bitset: *Bitset) -> s32 
-{
-    result: s32;
-    for element: bitset.bits
-    {
-        result += popcount(element);
-    }
-
-    return result;
-}
-
-bitset_combine :: (A: *Bitset, B: Bitset)
-{
-    assert(A.bit_count == B.bit_count);
-    for index: 0..A.bits.count - 1
-    {
-        A.bits[index] &= B.bits[index];
-    }
 }
 
 bitset_set_bit :: (bitset: *Bitset, index: s64)
@@ -96,6 +77,30 @@ bitset_clear :: (bitset: *Bitset)
     {
         bitset.bits[it] = 0;
     }
+}
+
+bitset_popcount :: (bitset: *Bitset) -> s32 
+{
+    result: s32;
+    for element: bitset.bits
+    {
+        result += popcount(element);
+    }
+
+    return result;
+}
+
+bitset_combine :: (A: Bitset, B: Bitset) -> Bitset
+{
+    result: Bitset;
+    result.bit_count = A.bit_count;
+    assert(A.bit_count == B.bit_count);
+    for index: 0..A.bits.count - 1
+    {
+        result.bits[index] = (A.bits[index] & B.bits[index]);
+    }
+
+    return result;
 }
 
 operator != :: (A: Bitset, B: Bitset) -> bool
@@ -232,9 +237,10 @@ WFC_propagate_AC1 :: (chunk_data    : *WFC_Gen_Chunk,
         module                 := neighbor_cell.cell_value;
         allowed_mask           := chunk_modules[module].constraints[opposite_dir];
         original_mask          := primary_cell.cell_mask;
-        bitset_combine(*primary_cell.cell_mask, allowed_mask);
-        if primary_cell.cell_mask != original_mask
+        new_mask := bitset_combine(*primary_cell.cell_mask, *allowed_mask);
+        if new_mask != original_mask
         {
+            primary_cell.cell_mask = new_mask;
             result = true;
         }
     }
@@ -411,6 +417,7 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                                     }
                                 }
                             }
+                            end_temporary_block(*scratch_arena);
                             WFC_generate_AC1(arena, gen_chunk);
                         }
                     }
@@ -481,13 +488,13 @@ WFC_enqueue_arc :: inline (using arc_queue       : *WFC_Arc_Queue,
 }
 
 WFC_revise_domain :: (chunk_data     : *WFC_Gen_Chunk,
-                      neighbor_cell  : *WFC_Cell,
                       collapsed_cell : *WFC_Cell,
+                      neighbor_cell  : *WFC_Cell,
                       arc_dir        :  Directions) -> bool
 {
     if neighbor_cell.is_collapsed return false;
-    changes_made := false;
 
+    changes_made := false;
     for module: 0..chunk_data.chunk_modules.count - 1
     {
         if bitset_check_bit(*neighbor_cell.cell_mask, module)
@@ -511,6 +518,7 @@ WFC_revise_domain :: (chunk_data     : *WFC_Gen_Chunk,
             }
         }
     }
+
     return changes_made;
 }
 
@@ -655,12 +663,14 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                 opposite_dir := get_direction_from_vector(get_opposite_vector(arc.arc_dir));  
 
                 // Module A is the neighbor, Module B is the collapsed cell
-                changed := WFC_revise_domain(gen_chunk, arc.domain_A, arc.domain_B, dir);
+                changed := WFC_revise_domain(gen_chunk, arc.domain_B, arc.domain_A, dir);
                 arc.domain_A.entropy = cast(u32)(bitset_popcount(*arc.domain_A.cell_mask));
                 if arc.domain_A.entropy == 0
                 {
                     // failure
-                    log("[ERROR]: Generation has failed... Resetting...");
+                    log("\n\n\n[=================== ERROR ====================\n");
+                    log("[ERROR]: Generation has failed... Resetting...\n");
+                    log("[=================== ERROR ====================\n\n\n");
 
                     // NOTE(Sleepster): Resetting in place.
                     for x: 0..chunk_size.x - 1
@@ -681,7 +691,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                         }
                     }
 
-                    //end_temporary_block(*scratch_arena);
+                    end_temporary_block(*scratch_arena);
                     WFC_generate_AC3(arena, gen_chunk);
                 }
 
@@ -704,6 +714,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
             }
         }
     }
+
     end_temporary_block(*scratch_arena);
 }
 
@@ -727,14 +738,6 @@ WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
             draw_texture(draw_frame, new_pos, .{16, 16}, *chunk.chunk_modules[cell.cell_value].sprite, WHITE);
         }
     }
-
-    // Palette rendering
-    // draw_texture(draw_frame, .{-50,  32}, .{16, 16}, *options[0], WHITE);
-    // draw_texture(draw_frame, .{-50,  16}, .{16, 16}, *options[1], WHITE);
-    // draw_texture(draw_frame, .{-50,   0}, .{16, 16}, *options[2], WHITE);
-    // draw_texture(draw_frame, .{-50, -16}, .{16, 16}, *options[3], WHITE);
-    // draw_texture(draw_frame, .{-50, -32}, .{16, 16}, *options[4], WHITE);
-    // draw_texture(draw_frame, .{-50, -48}, .{16, 16}, *options[5], WHITE);
 }
 
 /////////////////////////////////////
@@ -771,12 +774,11 @@ add_module_to_neighbor_list :: (primary: *WFC_Generator_Module, neighbor: *WFC_G
 WFC_analyze :: (arena: *Memory_Arena)
 {
     texture := asset_load_texture_from_path(example_image_filepath);
+    scratch := begin_temporary_block(arena);
 
     // setup
-    grid_width := texture.width  / tile_size.x;
+    grid_width  := texture.width  / tile_size.x;
     grid_height := texture.height / tile_size.y;
-
-    scratch := begin_temporary_block(arena);
 
     WFC_gen_data: WFC_Generator;
     WFC_gen_data.module_hash = push_array(arena, WFC_Generator_Module, xx (grid_width * grid_height));
@@ -913,5 +915,5 @@ WFC_analyze :: (arena: *Memory_Arena)
 
 #scope_file
 example_image_filepath : string   = "../data/res/textures/OLM_test_input.png";
-tile_size              : iVector2 = .{16, 16};
+tile_size              : iVector2 = .{64, 64};
 
