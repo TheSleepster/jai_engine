@@ -9,15 +9,17 @@ TODO:
 
   - [ ] Improve the way we supply rules and options
 
-  - [ ] Bitset, we need more than 64 options for modules
+  - [x] Bitset, we need more than 64 options for modules
 
   - [ ] Compress the options so that they also store a rotation??
 
-  - [ ] Create a queue for the propagation code rather than what we're doing now. (slow) 
+  - [x] Create a queue for the propagation code rather than what we're doing now. (slow) 
 
   - [ ] A* path finding to tie the rooms together
 
   - [ ] Path contraints?
+
+  - [ ] Backtracking on AC-3?
 */
 
 ////////////////
@@ -534,9 +536,13 @@ WFC_revise_domain :: (chunk_data     : *WFC_Gen_Chunk,
 
 WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 {
-    DEBUG_profile_and_report();
     using gen_chunk;
-    arc_list_array := push_array(arena, WFC_Arc, xx(chunk_size.x * chunk_size.y));
+    DEBUG_profile_and_report();
+
+    // NOTE(Sleepster): allocate this using the context so that it can easily be freed when we're done 
+    arc_list_array: []WFC_Arc;
+    arc_list_array.count = xx(chunk_size.x * chunk_size.y);
+    arc_list_array.data  = talloc(xx(chunk_size.x * chunk_size.y) * size_of(WFC_Arc));
 
     scratch_arena := begin_temporary_block(arena);
     while true
@@ -679,9 +685,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                 if arc.domain_A.entropy == 0
                 {
                     // failure
-                    log("\n\n\n[=================== ERROR ====================\n");
-                    log("[ERROR]: Generation has failed... Resetting...\n");
-                    log("[=================== ERROR ====================\n\n\n");
+                    //log("[ERROR]: Generation has failed... Resetting...\n");
 
                     // NOTE(Sleepster): Resetting in place.
                     for x: 0..chunk_size.x - 1
@@ -897,6 +901,7 @@ WFC_analyze :: (arena: *Memory_Arena)
         }
     }
 
+    resulting_modules := push_array(arena, WFC_Module, WFC_gen_data.unique_module_count);
     for *module: WFC_gen_data.module_hash
     {
         if module.hash_value != -1
@@ -916,7 +921,6 @@ WFC_analyze :: (arena: *Memory_Arena)
         }
     }
 
-    resulting_modules := push_array(arena, WFC_Module, WFC_gen_data.unique_module_count);
     for *module: resulting_modules
     {
     }

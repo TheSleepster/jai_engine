@@ -8,7 +8,7 @@
         return data;
     }
 
-    platform_deallocate_memory :: (data: *void)
+    platform_deallocate_memory :: (data: *void, size: u64)
     {
         W.VirtualFree(data, 0, W.MEM_RELEASE);
     }
@@ -19,14 +19,14 @@
 
     platform_allocate_memory :: inline (size: u64) -> *void
     {
-        data := alloc(xx size);
-        log("[INFO]: alloc called with a size of: %mb\n", cast(float32)(size / 1048576.0));
+        data := P.mmap(null, size, P.PROT_READ|P.PROT_WRITE, P.MAP_PRIVATE|P.MAP_ANONYMOUS, -1, 0);
+        log("[INFO]: mmap called with a size of: %mb\n", cast(float32)(size / 1048576.0));
         return data;
     }
 
-    platform_deallocate_memory :: inline (data: *void)
+    platform_deallocate_memory :: inline (data: *void, size: u64)
     {
-        free(data);
+        P.munmap(data, size);
     }
 }
 
@@ -183,13 +183,14 @@ begin_temporary_block :: (arena : *Memory_Arena) -> Scratch_Arena
 free_last_block :: inline (arena: *Memory_Arena)
 {
     free          := cast(*void)arena.base; 
-    memory_footer := get_footer(arena);
+    old_capacity  := arena.capacity;
 
+    memory_footer     := get_footer(arena);
     arena.base         = memory_footer.last_base;
     arena.used         = memory_footer.last_used;
     arena.capacity     = memory_footer.last_capacity;
 
-    platform_deallocate_memory(free);
+    platform_deallocate_memory(free, old_capacity);
     arena.block_count -= 1;
 }
 

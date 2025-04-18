@@ -342,8 +342,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         bitset_set_bit(*modules[5].constraints[WEST], 3);
 
         new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
-        WFC_generate_AC1(*game_state.game_arena, *new_chunk);
-        //WFC_generate_AC3(*game_state.game_arena, *new_chunk);
+        //WFC_generate_AC1(*game_state.game_arena, *new_chunk);
+        WFC_generate_AC3(*game_state.game_arena, *new_chunk);
 
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
