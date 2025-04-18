@@ -243,7 +243,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // WALL TOP
         modules[1].sprite = subsprite(sprite_WFC_input, .{16, 32}, .{-32, -32});
-        modules[1].weight = 2.0;
+        modules[1].weight = 4.0;
         for *constraint: modules[1].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -262,7 +262,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // WALL EAST SIDE 
         modules[2].sprite = subsprite(sprite_WFC_input, .{32, 16}, .{-32, -32});
-        modules[2].weight = 0.2;
+        modules[2].weight = 0.5;
         for *constraint: modules[2].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -282,7 +282,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // WALL WEST SIDE
         modules[3].sprite = subsprite(sprite_WFC_input, .{ 0, 16}, .{-32, -32});
-        modules[3].weight = 0.2;
+        modules[3].weight = 0.5;
         for *constraint: modules[3].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -302,7 +302,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // WALL BOTTOM SIDE
         modules[4].sprite = subsprite(sprite_WFC_input, .{16,  0}, .{-32, -32});
-        modules[4].weight = 2.0;
+        modules[4].weight = 4.0;
         for *constraint: modules[4].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);

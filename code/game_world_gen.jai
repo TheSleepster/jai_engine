@@ -365,28 +365,28 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                     cell := *chunk_grid[x_index][y_index];
                     if !cell.is_collapsed
                     {
-                        //check east
+                        // check east
                         if x_index + 1 < chunk_size.x
                         {
                             east_neighbor := *chunk_grid[x_index + 1][y_index];
                             propagated = WFC_propagate_AC1(gen_chunk, cell, east_neighbor, EAST, WEST);
                         }
 
-                        //check west
+                        // check west
                         if x_index - 1 >= 0
                         {
                             west_neighbor := *chunk_grid[x_index - 1][y_index];
                             propagated = WFC_propagate_AC1(gen_chunk, cell, west_neighbor, WEST, EAST);
                         }
 
-                        //check north
+                        // check north
                         if y_index + 1 < chunk_size.y
                         {
                             north_neighbor := *chunk_grid[x_index][y_index + 1];
                             propagated = WFC_propagate_AC1(gen_chunk, cell, north_neighbor, NORTH, SOUTH);
                         }
 
-                        //check south
+                        // check south
                         if y_index - 1 >= 0
                         {
                             south_neighbor := *chunk_grid[x_index][y_index - 1];
@@ -437,6 +437,16 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 // AC-3 WORLD GENERATION
 //////////////////////////
 
+/*
+// NOTE(Sleepster): 
+   AC-3 is actually much SLOWER than AC-1 right now. I don't know if
+   that's how it should be though. My current best guess as for the
+   cause of this is that since we have such a lower number of
+   modules AC-3 is just redundant for this setup. However maybe with
+   more modules (around 50 or so) AC-3 will prove to not only yield
+   better map gen but also be faster than AC-1.
+*/
+
 WFC_Arc :: struct
 {
     domain_A : *WFC_Cell;
@@ -476,10 +486,10 @@ get_opposite_vector :: inline (vector: iVector2) -> iVector2
     return result;
 }
 
-WFC_enqueue_arc :: inline (using arc_queue       : *WFC_Arc_Queue,
-                                 cell            : *WFC_Cell,
-                                 neighbor        : *WFC_Cell,
-                                 neighbor_vector :  iVector2)
+WFC_enqueue_arc :: (using arc_queue       : *WFC_Arc_Queue,
+                          cell            : *WFC_Cell,
+                          neighbor        : *WFC_Cell,
+                          neighbor_vector :  iVector2)
 {
     main_arc             := cast(WFC_Arc).{cell, neighbor, neighbor_vector};
     arc_list[queue_count] = main_arc;
@@ -526,6 +536,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 {
     DEBUG_profile_and_report();
     using gen_chunk;
+    arc_list_array := push_array(arena, WFC_Arc, xx(chunk_size.x * chunk_size.y));
 
     scratch_arena := begin_temporary_block(arena);
     while true
@@ -629,7 +640,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 
         // build the arc queue
         arc_queue: WFC_Arc_Queue;
-        arc_queue.arc_list = push_array(arena, WFC_Arc, xx (chunk_size.x * chunk_size.y));
+        arc_queue.arc_list = arc_list_array;
 
         cell_vectors: [4]iVector2;
         cell_vectors[NORTH] = .{ 0,  1};
@@ -714,7 +725,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
             }
         }
     }
-
+    
     end_temporary_block(*scratch_arena);
 }
 
