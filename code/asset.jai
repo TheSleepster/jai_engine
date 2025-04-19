@@ -118,13 +118,16 @@ Atlas_Sprite :: struct
     atlas_texture  : *Texture2D;
 };
 
-subsprite :: (sprite: *Atlas_Sprite, additional_offset: Vector2, additional_size: Vector2 = .{0, 0}) -> Atlas_Sprite
+subsprite :: (sprite: *Atlas_Sprite, offset: Vector2, new_size: Vector2) -> Atlas_Sprite
 {
+    assert(new_size.x > 0 && new_size.y > 0);
+    assert(offset.x < xx sprite.atlas_size.x && offset.y < xx sprite.atlas_size.y);
+    
     result: Atlas_Sprite;
     result = sprite.*;
 
-    result.atlas_position += additional_offset;
-    result.atlas_size     += additional_size;
+    result.atlas_position += offset;
+    result.atlas_size      = .{xx new_size.x, xx new_size.y};
 
     return result;
 }

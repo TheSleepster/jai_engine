@@ -146,6 +146,7 @@ reload_asset_pointers :: (asset_manager: *Asset_Manager)
     sprite_wood_chunk  = asset_get_sprite(asset_manager, "wood_chunk");
     sprite_WFC_input   = asset_get_sprite(asset_manager, "test_WFC_input");
 
+    game_atlas         = default_sprite.atlas_texture;
     game_font          = asset_get_font(asset_manager, "LiberationMono-Regular");
 }
 
@@ -209,14 +210,14 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         entity_manager.entities = push_array(*game_state.game_arena, Entity, MAX_ENTITIES);
 
-        WFC_analyze(*game_state.game_arena);
+        test_modules := WFC_analyze(*game_state.game_arena, asset_manager, game_atlas);
 
         // NOTE(Sleepster): replace game_state.game_arena here...
         modules := push_array(*game_state.game_arena, WFC_Module, 6);
         generation_size := (iVector2).{60, 40};
 
         // BLACK BACKGROUND
-        modules[0].sprite = subsprite(sprite_WFC_input, .{32, 32}, .{-32, -32});
+        modules[0].sprite = subsprite(sprite_WFC_input, .{32, 32}, .{16, 16});
         modules[0].weight = 0.02;
         for *constraint: modules[0].constraints
         {
@@ -242,8 +243,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         bitset_set_bit(*modules[0].constraints[WEST], 4);
 
         // WALL TOP
-        modules[1].sprite = subsprite(sprite_WFC_input, .{16, 32}, .{-32, -32});
-        modules[1].weight = 4.0;
+        modules[1].sprite = subsprite(sprite_WFC_input, .{16, 32}, .{16, 16});
+        modules[1].weight = 3.0;
         for *constraint: modules[1].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -261,7 +262,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
 
         // WALL EAST SIDE 
-        modules[2].sprite = subsprite(sprite_WFC_input, .{32, 16}, .{-32, -32});
+        modules[2].sprite = subsprite(sprite_WFC_input, .{32, 16}, .{16, 16});
         modules[2].weight = 0.5;
         for *constraint: modules[2].constraints
         {
@@ -281,7 +282,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         bitset_set_bit(*modules[2].constraints[WEST], 4);
 
         // WALL WEST SIDE
-        modules[3].sprite = subsprite(sprite_WFC_input, .{ 0, 16}, .{-32, -32});
+        modules[3].sprite = subsprite(sprite_WFC_input, .{ 0, 16}, .{16, 16});
         modules[3].weight = 0.5;
         for *constraint: modules[3].constraints
         {
@@ -301,8 +302,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         bitset_set_bit(*modules[3].constraints[WEST], 0);
 
         // WALL BOTTOM SIDE
-        modules[4].sprite = subsprite(sprite_WFC_input, .{16,  0}, .{-32, -32});
-        modules[4].weight = 4.0;
+        modules[4].sprite = subsprite(sprite_WFC_input, .{16,  0}, .{16, 16});
+        modules[4].weight = 3.0;
         for *constraint: modules[4].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -322,8 +323,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         bitset_set_bit(*modules[4].constraints[WEST], 4);
 
         // FLOOR 
-        modules[5].sprite = subsprite(sprite_WFC_input, .{16, 16}, .{-32, -32});
-        modules[5].weight = 10.0;
+        modules[5].sprite = subsprite(sprite_WFC_input, .{16, 16}, .{16, 16});
+        modules[5].weight = 8.0;
         for *constraint: modules[5].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -341,7 +342,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         bitset_set_bit(*modules[5].constraints[WEST], 5);
         bitset_set_bit(*modules[5].constraints[WEST], 3);
 
-        new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
+        new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, test_modules);
         //WFC_generate_AC1(*game_state.game_arena, *new_chunk);
         WFC_generate_AC3(*game_state.game_arena, *new_chunk);
 
@@ -759,6 +760,7 @@ sprite_wood_chunk     : *Atlas_Sprite;
 
 sprite_WFC_input      : *Atlas_Sprite;
 
+game_atlas            : *Texture2D;
 game_font             : *Dynamic_Render_Font;
 
 WHITE :: (Vector4).{1, 1, 1, 1};

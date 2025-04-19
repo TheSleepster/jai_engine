@@ -537,12 +537,13 @@ WFC_revise_domain :: (chunk_data     : *WFC_Gen_Chunk,
 WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 {
     using gen_chunk;
-    DEBUG_profile_and_report();
+    //DEBUG_profile_and_report();
 
     // NOTE(Sleepster): allocate this using the context so that it can easily be freed when we're done 
     arc_list_array: []WFC_Arc;
     arc_list_array.count = xx(chunk_size.x * chunk_size.y);
-    arc_list_array.data  = talloc(xx(chunk_size.x * chunk_size.y) * size_of(WFC_Arc));
+    arc_list_array.data  = platform_allocate_memory(xx((chunk_size.x * chunk_size.y) * size_of(WFC_Arc)));
+    defer platform_deallocate_memory(arc_list_array.data, xx((chunk_size.x * chunk_size.y) * size_of(WFC_Arc)));
 
     scratch_arena := begin_temporary_block(arena);
     while true
@@ -759,17 +760,25 @@ WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
 // AUTOMATIC STM MODULE GENERATION
 /////////////////////////////////////
 
+WFC_Generator_Neighbor_Entry :: struct
+{
+    hash_index   : u32;
+    module_index : u32;
+};
+
 WFC_Module_Neighbor_Data :: struct
 {
-    hash_indices : []u32;
-    count        : u32;
+    hash_indices   : []WFC_Generator_Neighbor_Entry;
+    neighbor_count : u32;
 };
 
 WFC_Generator_Module :: struct
 {
-    neighbors  : [COUNT]WFC_Module_Neighbor_Data;
-    weight     : float32;
-    hash_value : s64 = -1;
+    neighbors    : [COUNT]WFC_Module_Neighbor_Data;
+    sprite_data  : Atlas_Sprite;
+    weight       : float32;
+    hash_value   : s64 = -1;
+    module_index : u32;
 };
 
 WFC_Generator :: struct
@@ -778,25 +787,34 @@ WFC_Generator :: struct
     unique_module_count : u32;
 };
 
-add_module_to_neighbor_list :: (primary: *WFC_Generator_Module, neighbor: *WFC_Generator_Module, dir: Directions)
+add_module_to_neighbor_list :: (primary             : *WFC_Generator_Module,
+                                neighbor            : *WFC_Generator_Module,
+                                dir                 : Directions)
 {
     neighbor_data := *primary.neighbors[dir];
 
-    neighbor_data.hash_indices[neighbor_data.count] = xx neighbor.hash_value;
-    neighbor_data.count += 1;
+    data: WFC_Generator_Neighbor_Entry;
+    data.hash_index   = xx neighbor.hash_value;
+    data.module_index = neighbor.module_index;
+
+    neighbor_data.hash_indices[neighbor_data.neighbor_count] = data;
+    neighbor_data.neighbor_count += 1;
 }
 
-WFC_analyze :: (arena: *Memory_Arena)
+WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, atlas_texture: *Texture2D) -> []WFC_Module
 {
-    texture := asset_load_texture_from_path(example_image_filepath);
-    scratch := begin_temporary_block(arena);
+    texture      := asset_get_sprite(asset_manager, "OLM_test_input");
+
+    scratch      := begin_temporary_block(arena);
+    texture_data := asset_load_texture_from_path(example_image_filepath);
 
     // setup
-    grid_width  := texture.width  / tile_size.x;
-    grid_height := texture.height / tile_size.y;
+    grid_width  := texture.atlas_size.x  / tile_size.x;
+    grid_height := texture.atlas_size.y  / tile_size.y;
 
+    // NOTE(Sleepster): hardcoding this because I want to... it might end up being a bad idea but I don't care. 
     WFC_gen_data: WFC_Generator;
-    WFC_gen_data.module_hash = push_array(arena, WFC_Generator_Module, xx (grid_width * grid_height));
+    WFC_gen_data.module_hash = push_array(arena, WFC_Generator_Module, 2048);
     for *module: WFC_gen_data.module_hash
     {
         module.hash_value = -1;
@@ -804,17 +822,20 @@ WFC_analyze :: (arena: *Memory_Arena)
 
     module_grid: [][]s64;
     module_grid = push_array(arena, []s64, xx grid_width);
-    for grid_y: 0..grid_height - 1
+    for grid_y: 0..grid_width - 1
     {
         module_grid[grid_y] = push_array(arena, s64, xx grid_height);
     }
 
     // hash
     WFC_gen_data.unique_module_count = 0;
+    hashed_values := push_array(arena, u64, xx(grid_width * grid_height));
     for grid_x: 0..grid_width - 1
     {
         for grid_y: 0..grid_height - 1
         {
+            sprite_data := subsprite(texture, .{xx(grid_x * tile_size.x), xx(grid_y * tile_size.y)}, .{xx tile_size.x, xx tile_size.y});
+            
             hash_value: u64 = 14695981039346656037;
             for x: 0..tile_size.x 
             {
@@ -823,10 +844,10 @@ WFC_analyze :: (arena: *Memory_Arena)
                     pixel_x := grid_x * tile_size.x + x;
                     pixel_y := grid_y * tile_size.y + y;
 
-                    pixel_index := (pixel_y * texture.width + pixel_x) * texture.channels;
-                    for channel: 0..texture.channels - 1
+                    pixel_index := (pixel_y * texture.atlas_size.x + pixel_x) * texture_data.channels;
+                    for channel: 0..texture_data.channels - 1
                     {
-                        hash_value = hash_value ^ texture.data[pixel_index + channel];
+                        hash_value = hash_value ^ texture_data.data[pixel_index + channel];
                         hash_value = hash_value * 1099511628211;
                     }
                 }
@@ -835,11 +856,15 @@ WFC_analyze :: (arena: *Memory_Arena)
             hash_index    := (hash_value % xx WFC_gen_data.module_hash.count);
             log("HASH INDEX: '%', grid pos: {%, %}\n", hash_index, grid_x, grid_y);
             
-            hashed_module := *WFC_gen_data.module_hash[hash_index];
-            hashed_module.weight += 0.01;
+            hashed_module              := *WFC_gen_data.module_hash[hash_index];
+            hashed_module.module_index  = WFC_gen_data.unique_module_count;
+            hashed_module.sprite_data   = sprite_data;
+            hashed_module.weight       += 0.01;
             if hashed_module.hash_value == -1 
             {
                 hashed_module.hash_value = xx hash_index;
+
+                hashed_values[WFC_gen_data.unique_module_count] = hash_index;
                 WFC_gen_data.unique_module_count += 1;
             }
 
@@ -852,10 +877,10 @@ WFC_analyze :: (arena: *Memory_Arena)
     {
         if module.hash_value != -1
         {
-            module.neighbors[NORTH].hash_indices = push_array(arena, u32, WFC_gen_data.unique_module_count);
-            module.neighbors[SOUTH].hash_indices = push_array(arena, u32, WFC_gen_data.unique_module_count);
-            module.neighbors[EAST].hash_indices  = push_array(arena, u32, WFC_gen_data.unique_module_count);
-            module.neighbors[WEST].hash_indices  = push_array(arena, u32, WFC_gen_data.unique_module_count);
+            module.neighbors[NORTH].hash_indices = push_array(arena, WFC_Generator_Neighbor_Entry, WFC_gen_data.unique_module_count);
+            module.neighbors[SOUTH].hash_indices = push_array(arena, WFC_Generator_Neighbor_Entry, WFC_gen_data.unique_module_count);
+            module.neighbors[EAST].hash_indices  = push_array(arena, WFC_Generator_Neighbor_Entry, WFC_gen_data.unique_module_count);
+            module.neighbors[WEST].hash_indices  = push_array(arena, WFC_Generator_Neighbor_Entry, WFC_gen_data.unique_module_count);
         }
     }
     
@@ -900,20 +925,21 @@ WFC_analyze :: (arena: *Memory_Arena)
             }
         }
     }
+    end_temporary_block(*scratch);
 
-    resulting_modules := push_array(arena, WFC_Module, WFC_gen_data.unique_module_count);
+    // return values
     for *module: WFC_gen_data.module_hash
     {
         if module.hash_value != -1
         {
-            for neighbor_list: module.neighbors
+            for *neighbor_list: module.neighbors
             {
-                if neighbor_list.count > 0
+                if neighbor_list.neighbor_count > 0
                 {
                     log("Module '%' has the following neighbors: ", module.hash_value);
-                    for index: 0..neighbor_list.count - 1
+                    for index: 0..neighbor_list.neighbor_count - 1
                     {
-                        log("%", neighbor_list.hash_indices[index]);
+                        log("%, module_index: %", neighbor_list.hash_indices[index].hash_index, neighbor_list.hash_indices[index].module_index);
                     }
                     log("\n\n");
                 }
@@ -921,14 +947,48 @@ WFC_analyze :: (arena: *Memory_Arena)
         }
     }
 
-    for *module: resulting_modules
+    // build the return list
+    module_counter: u32;
+    resulting_modules := push_array(arena, WFC_Module, WFC_gen_data.unique_module_count);
+    for hash_entry: 0..WFC_gen_data.unique_module_count - 1
     {
+        hash_index     := hashed_values[hash_entry];
+        gen_module := *WFC_gen_data.module_hash[hash_index];
+
+        data: WFC_Module;
+        data.sprite      = gen_module.sprite_data;
+        data.weight      = gen_module.weight;
+
+        index: u32;
+        for *neighbor_list: gen_module.neighbors
+        {
+            data.constraints[index] = bitset_create(arena, WFC_gen_data.unique_module_count + 1);
+            if neighbor_list.neighbor_count > 0
+            {
+                for neighbor_index: 0..gen_module.neighbors[index].neighbor_count - 1
+                {
+                    neighbor_data := neighbor_list.hash_indices[neighbor_index];
+                    if neighbor_data.module_index > 0
+                    {
+                        bitset_set_bit(*data.constraints[index], neighbor_data.module_index - 1);
+                    }
+                    else if neighbor_data.module_index == 0
+                    {
+                        bitset_set_bit(*data.constraints[index], neighbor_data.module_index);
+                    }
+                }
+            }
+            index += 1;
+        }
+        
+        resulting_modules[module_counter] = data; 
+        module_counter += 1;
     }
-    
-    end_temporary_block(*scratch);
+
+    return resulting_modules;
 }
 
 #scope_file
-example_image_filepath : string   = "../data/res/textures/OLM_test_input.png";
+example_image_filepath : string   = "../data/res/textures/DEBUG/OLM_test_input.png";
 tile_size              : iVector2 = .{64, 64};
 
