@@ -23,7 +23,6 @@
 
 // ENGINE LOADS
 #load   "util.jai";
-//#load   "arena.jai";
 #load   "memory.jai";
 #load   "sprite_hash.jai";
 #load   "asset.jai";
@@ -339,3 +338,34 @@ main :: ()
         log("SDL Failed to init, error code: %", to_string(SDL_GetError()));
     }
 }
+
+
+build :: ()
+{
+    #import "Compiler";
+    #import "Basic";
+
+    workspace := compiler_create_workspace("Target workspace");
+    if !workspace
+    {
+        log("Workspace creation has failed...\n");
+        return;
+    }
+
+    options := get_build_options(workspace);
+
+    args := options.compile_time_command_line;
+    release := array_find(args, "release");
+
+    options.output_executable_name = "game_DEBUG";
+
+    if release set_optimization(*options, .VERY_OPTIMIZED, false);
+    options.dead_code_elimination = .ALL;
+    set_build_options(options, workspace);
+    set_build_options_dc(.{do_output = false});
+
+
+    add_build_file(#file, workspace);
+}
+
+//#run build();

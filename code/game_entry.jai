@@ -217,7 +217,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // BLACK BACKGROUND
         modules[0].sprite = subsprite(sprite_WFC_input, .{32, 32}, .{16, 16});
-        modules[0].weight = 0.02;
+        modules[0].weight = 0.01;
         for *constraint: modules[0].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -243,7 +243,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // WALL TOP
         modules[1].sprite = subsprite(sprite_WFC_input, .{16, 32}, .{16, 16});
-        modules[1].weight = 3.0;
+        modules[1].weight = 2.0;
         for *constraint: modules[1].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -262,7 +262,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // WALL EAST SIDE 
         modules[2].sprite = subsprite(sprite_WFC_input, .{32, 16}, .{16, 16});
-        modules[2].weight = 0.5;
+        modules[2].weight = 0.50;
         for *constraint: modules[2].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -282,7 +282,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // WALL WEST SIDE
         modules[3].sprite = subsprite(sprite_WFC_input, .{ 0, 16}, .{16, 16});
-        modules[3].weight = 0.5;
+        modules[3].weight = 0.50;
         for *constraint: modules[3].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -302,7 +302,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // WALL BOTTOM SIDE
         modules[4].sprite = subsprite(sprite_WFC_input, .{16,  0}, .{16, 16});
-        modules[4].weight = 3.0;
+        modules[4].weight = 2.0;
         for *constraint: modules[4].constraints
         {
             constraint.* = bitset_create(*game_state.game_arena, modules.count);
@@ -344,7 +344,12 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         generation_size := (iVector2).{60, 40};
         new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
         //WFC_generate_AC1(*game_state.game_arena, *new_chunk);
-        WFC_generate_AC3(*game_state.game_arena, *new_chunk);
+
+        generated: bool;
+        while !generated
+        {
+            generated = WFC_generate_AC3(*game_state.game_arena, *new_chunk);
+        }
 
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);

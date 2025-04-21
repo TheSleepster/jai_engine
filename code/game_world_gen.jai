@@ -489,11 +489,14 @@ get_opposite_vector :: inline (vector: iVector2) -> iVector2
     return result;
 }
 
+
 WFC_enqueue_arc :: (using arc_queue       : *WFC_Arc_Queue,
                           cell            : *WFC_Cell,
                           neighbor        : *WFC_Cell,
                           neighbor_vector :  iVector2)
 {
+    assert(queue_count < arc_list.count);
+    
     main_arc             := cast(WFC_Arc).{cell, neighbor, neighbor_vector};
     arc_list[queue_count] = main_arc;
 
@@ -535,8 +538,10 @@ WFC_revise_domain :: (chunk_data     : *WFC_Gen_Chunk,
     return changes_made;
 }
 
-WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
+WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
 {
+    result: bool;
+    
     using gen_chunk;
     //DEBUG_profile_and_report();
 
@@ -589,6 +594,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
         if lowest_entropy == chunk_modules.count + 1
         {
             log("[INFO]: WFC GENERATION COMPLETED...\n");
+            result = true;
             break;
         }
 
@@ -647,7 +653,8 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 
         // build the arc queue
         arc_queue: WFC_Arc_Queue;
-        arc_queue.arc_list = arc_list_array; 
+        arc_queue.arc_list    = arc_list_array; 
+        arc_queue.queue_count = 0;
 
         cell_vectors: [4]iVector2;
         cell_vectors[NORTH] = .{ 0,  1};
@@ -707,8 +714,10 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                         }
                     }
 
-                    end_temporary_block(*scratch_arena);
-                    WFC_generate_AC3(arena, gen_chunk);
+                    result = false;
+                    break;
+                    //end_temporary_block(*scratch_arena);
+                    //WFC_generate_AC3(arena, gen_chunk);
                 }
 
                 if changed
@@ -730,8 +739,8 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
             }
         }
     }
-    
     end_temporary_block(*scratch_arena);
+    return result;
 }
 
 
@@ -859,7 +868,7 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, atlas_textu
             hashed_module              := *WFC_gen_data.module_hash[hash_index];
             hashed_module.module_index  = WFC_gen_data.unique_module_count;
             hashed_module.sprite_data   = sprite_data;
-            hashed_module.weight       += 0.01;
+            hashed_module.weight       += 0.5;
             if hashed_module.hash_value == -1 
             {
                 hashed_module.hash_value = xx hash_index;
