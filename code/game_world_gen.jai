@@ -419,6 +419,7 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                                     }
                                 }
                             }
+
                             end_temporary_block(*scratch_arena);
                             WFC_generate_AC1(arena, gen_chunk);
                         }
@@ -542,8 +543,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
     // NOTE(Sleepster): allocate this using the context so that it can easily be freed when we're done 
     arc_list_array: []WFC_Arc;
     arc_list_array.count = xx(chunk_size.x * chunk_size.y);
-    arc_list_array.data  = platform_allocate_memory(xx((chunk_size.x * chunk_size.y) * size_of(WFC_Arc)));
-    defer platform_deallocate_memory(arc_list_array.data, xx((chunk_size.x * chunk_size.y) * size_of(WFC_Arc)));
+    arc_list_array.data  = talloc(xx(chunk_size.x * chunk_size.y) * size_of(WFC_Arc));
 
     scratch_arena := begin_temporary_block(arena);
     while true
@@ -647,7 +647,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
 
         // build the arc queue
         arc_queue: WFC_Arc_Queue;
-        arc_queue.arc_list = arc_list_array;
+        arc_queue.arc_list = arc_list_array; 
 
         cell_vectors: [4]iVector2;
         cell_vectors[NORTH] = .{ 0,  1};
@@ -686,7 +686,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk)
                 if arc.domain_A.entropy == 0
                 {
                     // failure
-                    //log("[ERROR]: Generation has failed... Resetting...\n");
+                    log("[ERROR]: Generation has failed... Resetting...\n");
 
                     // NOTE(Sleepster): Resetting in place.
                     for x: 0..chunk_size.x - 1

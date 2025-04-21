@@ -214,7 +214,6 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
         // NOTE(Sleepster): replace game_state.game_arena here...
         modules := push_array(*game_state.game_arena, WFC_Module, 6);
-        generation_size := (iVector2).{60, 40};
 
         // BLACK BACKGROUND
         modules[0].sprite = subsprite(sprite_WFC_input, .{32, 32}, .{16, 16});
@@ -342,7 +341,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         bitset_set_bit(*modules[5].constraints[WEST], 5);
         bitset_set_bit(*modules[5].constraints[WEST], 3);
 
-        new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, test_modules);
+        generation_size := (iVector2).{60, 40};
+        new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
         //WFC_generate_AC1(*game_state.game_arena, *new_chunk);
         WFC_generate_AC3(*game_state.game_arena, *new_chunk);
 
