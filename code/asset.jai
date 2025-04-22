@@ -76,6 +76,12 @@ init_asset_manager_data :: (render_state: *Render_State, asset_manager: *Asset_M
     error := FT_Init_FreeType(*ft_library);
     assert(!error);
 
+    asset_manager.textures = hash_table_create(*asset_manager.asset_arena, 512);
+    asset_manager.sprites  = hash_table_create(*asset_manager.asset_arena, 512);
+    asset_manager.soundfx  = hash_table_create(*asset_manager.asset_arena, 512);
+    asset_manager.shaders  = hash_table_create(*asset_manager.asset_arena, 512);
+    asset_manager.fonts    = hash_table_create(*asset_manager.asset_arena, 512);
+
     asset_manager.data_paths[0] = .{"../data/res/textures/", 0};
     asset_manager.data_paths[1] = .{"../data/res/sounds/", 0};
     asset_manager.data_paths[2] = .{"../data/res/fonts", 0};
@@ -132,6 +138,20 @@ subsprite :: (sprite: *Atlas_Sprite, offset: Vector2, new_size: Vector2) -> Atla
     return result;
 }
 
+asset_get_sprite :: (asset_manager: *Asset_Manager, key: string) -> *Atlas_Sprite
+{
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.sprites, key);
+    if asset_slot != null
+    {
+        return *asset_slot.sprite_data;
+    }
+    else
+    {
+        load_textures_into_atlas(asset_manager, key);
+        return *null_sprite;
+    }
+}
+
 
 ///////////////
 // TEXTURES
@@ -176,10 +196,13 @@ init_asset_image_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void
     }
 }
 
+// TODO(Sleepster): This is stupid! why not check the hash??? Also
+// this completely discards the texture's hash name! This is also stupid!
+// very bad!!!
 asset_load_texture_from_path :: (filepath: string, load_automatically := false) -> Texture2D
 {
     result: Texture2D;
-    result.filepath = filepath;
+    result.filepath  = filepath;
 
     stbi_set_flip_vertically_on_load(1);
     result.data = stbi_load(result.filepath.data, *result.width, *result.height, *result.channels, 0);
@@ -203,6 +226,7 @@ asset_load_texture_from_path :: (filepath: string, load_automatically := false) 
     return result;
 }
 
+// TODO(Sleepster): Why do we not search the asset manager first to see if it's already loaded??? 
 asset_load_texture_data :: (texture: *Texture2D, load_automatically := false) -> bool
 {
     stbi_set_flip_vertically_on_load(1);
@@ -299,6 +323,8 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
             hash_insert_pair(*asset_manager.sprites, texture.hash_name, sprite_slot);
 
             stbi_image_free(texture.data);
+            texture_rect.parent_texture.is_loaded  = false;
+            texture_rect.parent_texture.data       = null;
         }
     }
 
@@ -356,20 +382,33 @@ load_textures_into_atlas :: (asset_manager: *Asset_Manager, key: string)
     }
 }
 
-asset_get_sprite :: (asset_manager: *Asset_Manager, key: string) -> *Atlas_Sprite
+asset_get_texture :: (asset_manager: *Asset_Manager, key: string) -> *Texture2D
 {
-    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.sprites, key);
-    if asset_slot != null
+    result: *Texture2D = null;
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.textures, key);
+    if asset_slot
     {
-        return *asset_slot.sprite_data;
+        texture := *asset_slot.texture_data;
+        if !texture.data
+        {
+            texture.* = asset_load_texture_from_path(texture.filepath);
+        }
     }
     else
     {
-        load_textures_into_atlas(asset_manager, key);
-        return *null_sprite;
+        log("[ERROR]: Unable to find texture key '%'... are you sure this the right name?\n", key);
     }
+    
+    result = *asset_slot.texture_data;
+    return result;
 }
 
+asset_release_texture :: (texture: *Texture2D)
+{
+    stbi_image_free(texture.data);
+    texture.data      = null;
+    texture.is_loaded = false;
+}
 
 //////////////
 // SOUND
@@ -474,7 +513,6 @@ play_sound :: (sound_manager: *Sound_Manager, key: string, left_channel_volume: 
 
     return new_sound;
 }
-
 
 ///////////////////
 // SHADERS
@@ -901,6 +939,7 @@ asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32)
         if !error
         {
             result  := cast(*Font_Page)push_size(dynamic_font.asset_arena, size_of(Font_Page));
+            result.glyph_lookup = hash_table_create(asset_arena, 1024);
             //result  := New(Font_Page);
             success := FT_Set_Pixel_Sizes(font_face, 0, xx pixel_size);
             //success := FT_Set_Char_Size(font_face, pixel_size * 64, 0, 360, 0);

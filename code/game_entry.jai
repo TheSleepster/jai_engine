@@ -209,8 +209,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         init_game_data(game_data);
 
         entity_manager.entities = push_array(*game_state.game_arena, Entity, MAX_ENTITIES);
-
-        test_modules := WFC_analyze(*game_state.game_arena, asset_manager, game_atlas);
+        test_modules := WFC_analyze(*game_state.game_arena, asset_manager);
 
         // NOTE(Sleepster): replace game_state.game_arena here...
         modules := push_array(*game_state.game_arena, WFC_Module, 6);
@@ -341,13 +340,13 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         bitset_set_bit(*modules[5].constraints[WEST], 5);
         bitset_set_bit(*modules[5].constraints[WEST], 3);
 
-        generation_size := (iVector2).{60, 40};
-        new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
-        //WFC_generate_AC1(*game_state.game_arena, *new_chunk);
+        generation_size := (iVector2).{12, 12};
+        new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, test_modules);
 
         generated: bool;
         while !generated
         {
+            //generated = WFC_generate_AC1(*game_state.game_arena, *new_chunk);
             generated = WFC_generate_AC3(*game_state.game_arena, *new_chunk);
         }
 

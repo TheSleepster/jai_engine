@@ -217,5 +217,16 @@ reset_arena :: (arena: *Memory_Arena)
         free_last_block(arena);
         log("[INFO]: [reset_arena]: Block freed...\n");
     }
-    arena.used = 0;
+    arena.used          = 0;
+    arena.scratch_count = 0;
 }
+
+push_temp_array :: ($T: Type, count: u32) -> []T
+{
+    result: []T;
+    result.data  = talloc(size_of(T) * count);
+    result.count = count;
+
+    return result;
+}
+

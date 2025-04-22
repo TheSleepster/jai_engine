@@ -24,7 +24,7 @@
 // ENGINE LOADS
 #load   "util.jai";
 #load   "memory.jai";
-#load   "sprite_hash.jai";
+#load   "sl_hash_table.jai";
 #load   "asset.jai";
 #load   "shaders.jai";
 #load   "drawing.jai";
@@ -41,7 +41,8 @@
 /*
     TODO:
        - Multithreading
-       - We have a big memory leak.
+       - replace talloc() with a garbage arean placed in the context
+       - rewrite image asset loader
 */
 
 DEBUG :: 1;

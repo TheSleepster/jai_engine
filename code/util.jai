@@ -167,40 +167,6 @@ print_matrix :: (m: Matrix4)
     }
 }
 
-// static inline vec4 mat4Transform(mat4 Matrix, vec4 Vector)
-// {
-//     return mat4MakeTransform(Vector, Matrix);
-// }
-
-// static inline vec4 mat4MakeTransform(vec4 Left, mat4 Right)
-// {
-    
-//     vec4 Result;
-//
-//     Result.X = Left.Elements[0] * Right.Columns[0].X;
-//     Result.Y = Left.Elements[0] * Right.Columns[0].Y;
-//     Result.Z = Left.Elements[0] * Right.Columns[0].Z;
-//     Result.W = Left.Elements[0] * Right.Columns[0].W;
-    
-//     Result.X += Left.Elements[1] * Right.Columns[1].X;
-//     Result.Y += Left.Elements[1] * Right.Columns[1].Y;
-//     Result.Z += Left.Elements[1] * Right.Columns[1].Z;
-//     Result.W += Left.Elements[1] * Right.Columns[1].W;
-    
-//     Result.X += Left.Elements[2] * Right.Columns[2].X;
-//     Result.Y += Left.Elements[2] * Right.Columns[2].Y;
-//     Result.Z += Left.Elements[2] * Right.Columns[2].Z;
-//     Result.W += Left.Elements[2] * Right.Columns[2].W;
-    
-//     Result.X += Left.Elements[3] * Right.Columns[3].X;
-//     Result.Y += Left.Elements[3] * Right.Columns[3].Y;
-//     Result.Z += Left.Elements[3] * Right.Columns[3].Z;
-//     Result.W += Left.Elements[3] * Right.Columns[3].W;
-// #endif
-    
-//     return Result;
-// }
-
 mat4_transform :: (matrix: Matrix4, vector: Vector4) -> Vector4
 {
     result: Vector4 = ---;
