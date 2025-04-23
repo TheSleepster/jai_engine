@@ -1,26 +1,22 @@
 /*
 TODO:
+  - [ ] Add the ability to precollapse tiles before generation, "seeding" the generation
+
+BACKBURNER:
+  - [ ] A* path finding to tie the rooms together
+  - [ ] Compress the options so that they also store a rotation??
+  - [ ] Backtracking on AC-3?
+  - [ ] Path contraints?
+
+DONE:
+  - [x] Create a queue for the propagation code rather than what we're doing now. (slow) 
+  - [x] Bitset, we need more than 64 options for modules
   - [x] Make a LIST of the tiles with the lowest entropy, instead of
         picking just the first one we see. Then select randomly from that
         list.
-
   - [x] Propogate collapses to all nearby tiles within a 3x3
         intersection of our tile.
-
-  - [ ] Improve the way we supply rules and options
-
-  - [x] Bitset, we need more than 64 options for modules
-
-  - [ ] Compress the options so that they also store a rotation??
-
-  - [x] Create a queue for the propagation code rather than what we're doing now. (slow) 
-
-  - [ ] Backtracking on AC-3?
-
-  - [ ] A* path finding to tie the rooms together
-
-  - [ ] Path contraints?
-
+  - [x] Improve the way we supply rules and options
 */
 
 ////////////////
@@ -151,9 +147,12 @@ WFC_Module :: struct
 
 WFC_Gen_Chunk :: struct
 {
-    chunk_size    :     iVector2;
-    chunk_modules :   []WFC_Module;
-    chunk_grid    : [][]WFC_Cell;
+    chunk_size      :     iVector2;
+    chunk_modules   :   []WFC_Module;
+    generation_grid : [][]WFC_Cell;
+    initial_grid    : [][]WFC_Cell;
+
+    arc_queue       : WFC_Arc_Queue;
 };
 
 // TODO(Sleepster): This might be painfully slow 
@@ -163,23 +162,29 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
     new_chunk.chunk_size    = chunk_size;
     new_chunk.chunk_modules = modules;
 
-    new_chunk.chunk_grid = push_array(arena, []WFC_Cell, xx chunk_size.x);
+    new_chunk.generation_grid = push_array(arena, []WFC_Cell, xx chunk_size.x);
     for x: 0..chunk_size.x - 1
     {
-        new_chunk.chunk_grid[x] = push_array(arena, WFC_Cell, xx chunk_size.y);
+        new_chunk.generation_grid[x] = push_array(arena, WFC_Cell, xx chunk_size.y);
+    }
+
+    new_chunk.initial_grid = push_array(arena, []WFC_Cell, xx chunk_size.x);
+    for x: 0..chunk_size.x - 1
+    {
+        new_chunk.initial_grid[x] = push_array(arena, WFC_Cell, xx chunk_size.y);
     }
 
     for x: 0..chunk_size.x - 1
     {
         for y: 0..chunk_size.y - 1
         {
-            cell := *new_chunk.chunk_grid[x][y];
+            cell         := *new_chunk.generation_grid[x][y];
+            initial_cell := *new_chunk.initial_grid[x][y];
             
             cell.is_collapsed = false;
             cell.cell_value   = 0;
             cell.entropy      = xx modules.count;
             cell.cell_mask    = bitset_create(arena, modules.count);
-
             cell.cell_x       = x;
             cell.cell_y       = y;
 
@@ -187,6 +192,8 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
             {
                 bitset_set_bit(*cell.cell_mask, module_index);
             }
+
+            initial_cell.* = cell.*;
         }
     }
 
@@ -273,7 +280,7 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
         {
             for y_index: 0..chunk_size.y - 1
             {
-                current_cell := *chunk_grid[x_index][y_index];
+                current_cell := *generation_grid[x_index][y_index];
                 if !current_cell.is_collapsed
                 {
                     if current_cell.entropy < lowest_entropy
@@ -369,34 +376,34 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
             {
                 for y_index: 0..chunk_size.y - 1
                 {
-                    cell := *chunk_grid[x_index][y_index];
+                    cell := *generation_grid[x_index][y_index];
                     if !cell.is_collapsed
                     {
                         // check east
                         if x_index + 1 < chunk_size.x
                         {
-                            east_neighbor := *chunk_grid[x_index + 1][y_index];
+                            east_neighbor := *generation_grid[x_index + 1][y_index];
                             propagated = WFC_propagate_AC1(gen_chunk, cell, east_neighbor, EAST, WEST);
                         }
 
                         // check west
                         if x_index - 1 >= 0
                         {
-                            west_neighbor := *chunk_grid[x_index - 1][y_index];
+                            west_neighbor := *generation_grid[x_index - 1][y_index];
                             propagated = WFC_propagate_AC1(gen_chunk, cell, west_neighbor, WEST, EAST);
                         }
 
                         // check north
                         if y_index + 1 < chunk_size.y
                         {
-                            north_neighbor := *chunk_grid[x_index][y_index + 1];
+                            north_neighbor := *generation_grid[x_index][y_index + 1];
                             propagated = WFC_propagate_AC1(gen_chunk, cell, north_neighbor, NORTH, SOUTH);
                         }
 
                         // check south
                         if y_index - 1 >= 0
                         {
-                            south_neighbor := *chunk_grid[x_index][y_index - 1];
+                            south_neighbor := *generation_grid[x_index][y_index - 1];
                             propagated = WFC_propagate_AC1(gen_chunk, cell, south_neighbor, SOUTH, NORTH);
                         }
 
@@ -411,7 +418,7 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
                             {
                                 for y: 0..chunk_size.y - 1
                                 {
-                                    cell := *gen_chunk.chunk_grid[x][y];
+                                    cell := *gen_chunk.generation_grid[x][y];
                                     
                                     cell.is_collapsed = false;
                                     cell.cell_value   = 0;
@@ -503,8 +510,8 @@ WFC_enqueue_arc :: (using arc_queue       : *WFC_Arc_Queue,
                           neighbor        : *WFC_Cell,
                           neighbor_vector :  iVector2)
 {
-    main_arc             := cast(WFC_Arc).{cell, neighbor, neighbor_vector};
-    array_add(*arc_list, main_arc);
+    main_arc := cast(WFC_Arc).{cell, neighbor, neighbor_vector};
+    array_insert_at(*arc_list, main_arc, queue_count);
 
     queue_count += 1;
 }
@@ -546,27 +553,25 @@ WFC_revise_domain :: (chunk_data     : *WFC_Gen_Chunk,
 
 WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
 {
-    result: bool;
-    
-    using gen_chunk;
     //DEBUG_profile_and_report();
+    result: bool;
 
     should_break: bool;
     scratch_arena := begin_temporary_block(arena);
     while !should_break
     {
         to_collapse: []*WFC_Cell;
-        to_collapse.count = (chunk_size.x * chunk_size.y);
-        to_collapse.data  = push_size(arena, size_of(*WFC_Cell) * (chunk_size.x * chunk_size.y));
+        to_collapse.count = (gen_chunk.chunk_size.x * gen_chunk.chunk_size.y);
+        to_collapse.data  = push_size(arena, size_of(*WFC_Cell) * (gen_chunk.chunk_size.x * gen_chunk.chunk_size.y));
         cell_count : u32;
 
         // builds list of tiles to collapse
-        lowest_entropy := chunk_modules.count + 1;
-        for x_index: 0..chunk_size.x - 1
+        lowest_entropy := gen_chunk.chunk_modules.count + 1;
+        for x_index: 0..gen_chunk.chunk_size.x - 1
         {
-            for y_index: 0..chunk_size.y - 1
+            for y_index: 0..gen_chunk.chunk_size.y - 1
             {
-                current_cell := *chunk_grid[x_index][y_index];
+                current_cell := *gen_chunk.generation_grid[x_index][y_index];
                 if !current_cell.is_collapsed
                 {
                     if current_cell.entropy < lowest_entropy
@@ -593,9 +598,11 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
         }
 
         // all cells have been collapsed
-        if lowest_entropy == chunk_modules.count + 1
+        if lowest_entropy == gen_chunk.chunk_modules.count + 1
         {
             log("[INFO]: WFC GENERATION COMPLETED...\n");
+            array_free(gen_chunk.arc_queue.arc_list);
+
             result = true;
             break;
         }
@@ -608,11 +615,11 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
         cell := to_collapse[index_to_pick];
         cell_modules: []u32;
 
-        cell_modules.data  = push_size(arena, xx (size_of(u32) * chunk_modules.count));
-        cell_modules.count = chunk_modules.count;
+        cell_modules.data  = push_size(arena, xx (size_of(u32) * gen_chunk.chunk_modules.count));
+        cell_modules.count = gen_chunk.chunk_modules.count;
 
         cell_module_counter: u32 = 0;
-        for bit_index: 0..chunk_modules.count - 1
+        for bit_index: 0..gen_chunk.chunk_modules.count - 1
         {
             if bitset_check_bit(*cell.cell_mask, bit_index)
             {
@@ -626,12 +633,12 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
         {
             for index: 0..cell_module_counter - 1
             {
-                total_weight += chunk_modules[cell_modules[index]].weight;
+                total_weight += gen_chunk.chunk_modules[cell_modules[index]].weight;
             }
         }
         else
         {
-            total_weight += chunk_modules[cell_modules[0]].weight;
+            total_weight += gen_chunk.chunk_modules[cell_modules[0]].weight;
         }
 
         collapsed_value   := random_get_within_range(*context.random_state, 0.0, total_weight);
@@ -639,7 +646,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
         selected_module   : u32;
         for index: 0..cell_module_counter - 1
         {
-            cumulative_weight += chunk_modules[cell_modules[index]].weight;
+            cumulative_weight += gen_chunk.chunk_modules[cell_modules[index]].weight;
             if collapsed_value <= cumulative_weight 
             {
                 selected_module = cell_modules[index];
@@ -652,13 +659,6 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
         cell.entropy      = 1;
         bitset_clear(*cell.cell_mask);
         bitset_set_bit(*cell.cell_mask, selected_module);
-
-        // build the arc queue
-        arc_queue: WFC_Arc_Queue;
-        arc_queue.queue_count = 0;
-
-        // NOTE(Sleepster): I know this is slow, I just don't care 
-        defer array_free(arc_queue.arc_list);
 
         cell_vectors: [4]iVector2;
         cell_vectors[NORTH] = .{ 0,  1};
@@ -674,17 +674,17 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
             if neighbor_x >= 0 && neighbor_x < gen_chunk.chunk_size.x &&
                neighbor_y >= 0 && neighbor_y < gen_chunk.chunk_size.y
             {
-                neighbor_cell := *chunk_grid[neighbor_x][neighbor_y];
-                WFC_enqueue_arc(*arc_queue, neighbor_cell, cell, neighbor_vector);
+                neighbor_cell := *gen_chunk.generation_grid[neighbor_x][neighbor_y];
+                WFC_enqueue_arc(*gen_chunk.arc_queue, neighbor_cell, cell, neighbor_vector);
             }
         }
 
         // propagate the collapse
-        while arc_queue.queue_count != 0 
+        while gen_chunk.arc_queue.queue_count != 0 
         {
             // remove an item from the queue
-            arc := arc_queue.arc_list[arc_queue.queue_count - 1];
-            arc_queue.queue_count -= 1;
+            arc := gen_chunk.arc_queue.arc_list[gen_chunk.arc_queue.queue_count - 1];
+            gen_chunk.arc_queue.queue_count -= 1;
 
             if !arc.domain_A.is_collapsed
             {
@@ -700,23 +700,17 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
                     log("[ERROR]: Generation has failed... Resetting...\n");
 
                     // NOTE(Sleepster): Resetting in place.
-                    for x: 0..chunk_size.x - 1
+                    for x: 0..gen_chunk.chunk_size.x - 1
                     {
-                        for y: 0..chunk_size.y - 1
+                        for y: 0..gen_chunk.chunk_size.y - 1
                         {
-                            cell := *gen_chunk.chunk_grid[x][y];
-                            
-                            cell.is_collapsed = false;
-                            cell.cell_value   = 0;
-                            cell.entropy      = xx chunk_modules.count;
+                            cell         := *gen_chunk.generation_grid[x][y];
+                            initial_cell :=  gen_chunk.initial_grid[x][y];
 
-                            bitset_clear(*cell.cell_mask);
-                            for module_index: 0..chunk_modules.count - 1
-                            {
-                                bitset_set_bit(*cell.cell_mask, module_index);
-                            }
+                            cell.* = initial_cell;
                         }
                     }
+                    gen_chunk.arc_queue.queue_count = 0;
 
                     result = false;
                     should_break = true;
@@ -736,8 +730,8 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
                         if neighbor_x  >= 0 && neighbor_x < gen_chunk.chunk_size.x &&
                             neighbor_y >= 0 && neighbor_y < gen_chunk.chunk_size.y
                         {
-                            neighbor_cell := *chunk_grid[neighbor_x][neighbor_y];
-                            WFC_enqueue_arc(*arc_queue, neighbor_cell, arc.domain_A, neighbor_vector);
+                            neighbor_cell := *gen_chunk.generation_grid[neighbor_x][neighbor_y];
+                            WFC_enqueue_arc(*gen_chunk.arc_queue, neighbor_cell, arc.domain_A, neighbor_vector);
                         }
                     }
                 }
@@ -763,7 +757,7 @@ WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
     {
         for y: 0..chunk.chunk_size.y - 1
         {
-            cell := chunk.chunk_grid[x][y];
+            cell := chunk.generation_grid[x][y];
 
             new_pos := (Vector2).{initial_pos.x + (x * tile_size.x), initial_pos.y + (y * tile_size.y)};
             draw_texture(draw_frame, new_pos, tile_size, *chunk.chunk_modules[cell.cell_value].sprite, WHITE);
