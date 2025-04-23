@@ -140,8 +140,10 @@ main :: ()
         time            : Time_Data;
 
         game_state      : *Game_State;
-        entity_manager  :  Entity_Manager;
         transient_state : *Transient_State;
+
+        // TODO(Sleepster): Why is this here? 
+        entity_manager  :  Entity_Manager;
 
         
         window_data.window_size = .{1920, 1080};

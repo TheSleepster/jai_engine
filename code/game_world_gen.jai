@@ -70,7 +70,7 @@ bitset_check_bit :: (bitset: *Bitset, index: s64) -> bool
     return (((bitset.bits[index >> 6]) & (xx(1 << (index & 63)))) != 0);
 }
 
-bitset_clear :: (bitset: *Bitset)
+bitset_reset :: (bitset: *Bitset)
 {
     for 0..bitset.bits.count - 1
     {
@@ -112,6 +112,7 @@ operator != :: (A: Bitset, B: Bitset) -> bool
 
     return false;
 }
+
 
 ////////////////////////
 // WFC MAP GENERATION
@@ -200,10 +201,85 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
     return new_chunk;
 }
 
+WFC_collapse_single_cell :: (chunk: *WFC_Gen_Chunk, value: u32, grid_pos: iVector2)
+{
+    initial_cell := *chunk.initial_grid[grid_pos.x][grid_pos.y];
+    initial_cell.is_collapsed = true;
+    initial_cell.cell_value   = value;
+    initial_cell.entropy      = 1;
+
+    bitset_reset(*initial_cell.cell_mask);
+    bitset_set_bit(*initial_cell.cell_mask, initial_cell.cell_value);
+
+    cell_vectors: [4]iVector2;
+    cell_vectors[NORTH] = .{ 0,  1};
+    cell_vectors[SOUTH] = .{ 0, -1};
+    cell_vectors[EAST]  = .{ 1,  0};
+    cell_vectors[WEST]  = .{-1,  0};
+    for 0..4 - 1
+    {
+        neighbor_x := initial_cell.cell_x + cell_vectors[it].x;
+        neighbor_y := initial_cell.cell_y + cell_vectors[it].y;
+
+        neighbor_vector := get_opposite_vector(cell_vectors[it]);
+        if neighbor_x >= 0 && neighbor_x < chunk.chunk_size.x &&
+            neighbor_y >= 0 && neighbor_y < chunk.chunk_size.y
+        {
+            neighbor_cell := *chunk.initial_grid[neighbor_x][neighbor_y];
+            WFC_enqueue_arc(*chunk.arc_queue, neighbor_cell, initial_cell, neighbor_vector);
+        }
+    }
+
+    // propagate the collapse
+    while chunk.arc_queue.queue_count != 0
+    {
+        // remove an item from the queue
+        arc := chunk.arc_queue.arc_list[chunk.arc_queue.queue_count - 1];
+        chunk.arc_queue.queue_count -= 1;
+
+        if !arc.domain_A.is_collapsed
+        {
+            dir          := get_direction_from_vector(arc.arc_dir);
+            opposite_dir := get_direction_from_vector(get_opposite_vector(arc.arc_dir));  
+
+            // Module A is the neighbor, Module B is the collapsed cell
+            changed := WFC_revise_domain(chunk, arc.domain_B, arc.domain_A, dir);
+            arc.domain_A.entropy = cast(u32)(bitset_popcount(*arc.domain_A.cell_mask));
+            if arc.domain_A.entropy == 0
+            {
+                log("[ERROR]: Seeding has failed...\n");
+                break;
+            }
+
+            if changed
+            {
+                for 0..4 - 1
+                {
+                    neighbor_x := arc.domain_A.cell_x + cell_vectors[it].x;
+                    neighbor_y := arc.domain_A.cell_y + cell_vectors[it].y;
+
+                    neighbor_vector := get_opposite_vector(cell_vectors[it]);
+                    if neighbor_x  >= 0 && neighbor_x < chunk.chunk_size.x &&
+                        neighbor_y >= 0 && neighbor_y < chunk.chunk_size.y
+                    {
+                        neighbor_cell := *chunk.initial_grid[neighbor_x][neighbor_y];
+                        WFC_enqueue_arc(*chunk.arc_queue, neighbor_cell, arc.domain_A, neighbor_vector);
+                    }
+                }
+            }
+        }
+
+        cell  := *chunk.generation_grid[arc.domain_A.cell_x][arc.domain_A.cell_y];
+        cell.* = arc.domain_A.*;
+    }
+
+    chunk.arc_queue.queue_count = 0;
+}
+
+
 //////////////////////////
 // AC-1 WORLD GENERATION
 //////////////////////////
-
 
 WFC_propagate_AC1 :: (chunk_data    : *WFC_Gen_Chunk,
                       primary_cell  : *WFC_Cell,
@@ -424,7 +500,7 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
                                     cell.cell_value   = 0;
                                     cell.entropy      = xx chunk_modules.count;
 
-                                    bitset_clear(*cell.cell_mask);
+                                    bitset_reset(*cell.cell_mask);
                                     for module_index: 0..chunk_modules.count - 1
                                     {
                                         bitset_set_bit(*cell.cell_mask, module_index);
@@ -451,19 +527,10 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
     return result;
 }
 
+
 //////////////////////////
 // AC-3 WORLD GENERATION
 //////////////////////////
-
-/*
-// NOTE(Sleepster): 
-   AC-3 is actually much SLOWER than AC-1 right now. I don't know if
-   that's how it should be though. My current best guess as for the
-   cause of this is that since we have such a lower number of
-   modules AC-3 is just redundant for this setup. However maybe with
-   more modules (around 50 or so) AC-3 will prove to not only yield
-   better map gen but also be faster than AC-1.
-*/
 
 WFC_Arc :: struct
 {
@@ -657,7 +724,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
         cell.is_collapsed = true;
         cell.cell_value   = selected_module;
         cell.entropy      = 1;
-        bitset_clear(*cell.cell_mask);
+        bitset_reset(*cell.cell_mask);
         bitset_set_bit(*cell.cell_mask, selected_module);
 
         cell_vectors: [4]iVector2;
@@ -752,7 +819,6 @@ WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
 {
     push_render_layer(draw_frame, 15);
     initial_pos := (Vector2).{-482, -240};
-
     for x: 0..chunk.chunk_size.x -1
     {
         for y: 0..chunk.chunk_size.y - 1
@@ -763,7 +829,10 @@ WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
             draw_texture(draw_frame, new_pos, tile_size, *chunk.chunk_modules[cell.cell_value].sprite, WHITE);
         }
     }
+
+    draw_texture(draw_frame, .{200, 0}, tile_size, *chunk.chunk_modules[2].sprite, WHITE);
 }
+
 
 /////////////////////////////////////
 // AUTOMATIC STM MODULE GENERATION
@@ -963,7 +1032,7 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
 
         new_module: WFC_Module;
         new_module.sprite = module_data.sprite_data;
-        new_module.weight = log(module_data.module_frequency - 1);
+        new_module.weight = 1 + log(module_data.module_frequency - 1);
         for constraint_index: 0..4 - 1
         {
             gen_constraint_data := *module_data.constraint_data[constraint_index];
