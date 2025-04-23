@@ -342,7 +342,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         filepath :: "../data/res/textures/DEBUG/OLM_test_input2.png";
         test_modules := WFC_analyze(*game_state.game_arena, asset_manager, filepath);
 
-        generation_size := (iVector2).{12, 12};
+        generation_size := (iVector2).{36, 24};
         new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, test_modules);
 
         generated: bool;

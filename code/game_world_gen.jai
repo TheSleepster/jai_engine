@@ -498,7 +498,6 @@ get_opposite_vector :: inline (vector: iVector2) -> iVector2
     return result;
 }
 
-
 WFC_enqueue_arc :: (using arc_queue       : *WFC_Arc_Queue,
                           cell            : *WFC_Cell,
                           neighbor        : *WFC_Cell,
@@ -790,7 +789,7 @@ WFC_Generator_Module :: struct
 
     constraint_data     : [4]WFC_Generator_Neighbor_Data;
     sprite_data         :    Atlas_Sprite;
-    module_weight       :    float32;
+    module_frequency    :    float32;
 };
 
 WFC_Generator :: struct
@@ -895,8 +894,8 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
                 assert(hashed_module.is_valid);
             }
 
-            hashed_module.module_weight      += 0.5;
-            module_grid[grid_x][grid_y] = hash_index;
+            hashed_module.module_frequency += 1;
+            module_grid[grid_x][grid_y]     = hash_index;
         }
     }
 
@@ -970,7 +969,7 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
 
         new_module: WFC_Module;
         new_module.sprite = module_data.sprite_data;
-        new_module.weight = 1 + sqrt(module_data.module_weight - 1);
+        new_module.weight = log(module_data.module_frequency - 1);
         for constraint_index: 0..4 - 1
         {
             gen_constraint_data := *module_data.constraint_data[constraint_index];
