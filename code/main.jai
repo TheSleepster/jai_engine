@@ -45,7 +45,7 @@
        - rewrite image asset loader
 */
 
-DEBUG :: 1;
+DEBUG :: 0;
 
 SAMPLES_PER_SECOND    :: 48000;
 
@@ -323,6 +323,7 @@ main :: ()
                 }
 
                 // TEST HOTLOADING
+                #if DEBUG == 1
                 {
                     // IMPORTANT(Sleepster): WARNING THIS FUNCTION IS SLOW AS BALLS 
                     hotload_assets(*asset_manager);

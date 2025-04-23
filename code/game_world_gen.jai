@@ -778,7 +778,7 @@ WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
 
 WFC_Generator_Neighbor_Data :: struct
 {
-    neighbor_hash_values : []u64;
+    neighbor_hash_values : [..]u64;
     neighbor_count       :   u32;
 };
 
@@ -804,15 +804,17 @@ add_module_to_neighbor_list :: inline (parent    : *WFC_Generator_Module,
                                        direction :  Directions)
 {
     parent_data := *parent.constraint_data[direction];
-    parent_data.neighbor_hash_values[parent_data.neighbor_count] = neighbor.hash_value;
+
+    array_insert_at(*parent_data.neighbor_hash_values, neighbor.hash_value, parent_data.neighbor_count);
     parent_data.neighbor_count += 1;
 }
 
-WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: string = example_image_filepath) -> []WFC_Module
+WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: string) -> []WFC_Module
 {
     result: []WFC_Module;
     
-    atlas_sprite := asset_get_sprite(asset_manager, "OLM_test_input");
+    path, basename, ext := path_decomp(filepath);
+    atlas_sprite := asset_get_sprite(asset_manager, basename);
     texture_data := asset_load_texture_from_path(filepath); 
 
     // TODO(Sleepster): When I'm not pissed off make this work properly 
@@ -898,19 +900,6 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
         }
     }
 
-    // calaculate neighbors
-    for valid_hash: 0..generator.unique_module_count - 1 
-    {
-        hash_index := valid_hashes[valid_hash];
-        module     := *generator.module_hash[hash_index];
-        assert(module.is_valid);
-
-        module.constraint_data[NORTH].neighbor_hash_values = push_temp_array(u64, generator.unique_module_count);
-        module.constraint_data[SOUTH].neighbor_hash_values = push_temp_array(u64, generator.unique_module_count);
-        module.constraint_data[EAST].neighbor_hash_values  = push_temp_array(u64, generator.unique_module_count);
-        module.constraint_data[WEST].neighbor_hash_values  = push_temp_array(u64, generator.unique_module_count);
-    }
-
     // analysis
     for x: 0..grid_width - 1
     {
@@ -953,25 +942,25 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
         }
     }
 
-    for *module: generator.module_hash
-    {
-        if module.is_valid 
-        {
-            for *neighbor_list: module.constraint_data
-            {
-                if neighbor_list.neighbor_count > 0
-                {
-                    log("Module '%' has the following neighbors: ", module.hash_value);
-                    for index: 0..neighbor_list.neighbor_count - 1
-                    {
-                        hash_index := neighbor_list.neighbor_hash_values[index];
-                        log("%, module_index: %", hash_index, generator.module_hash[hash_index].unique_module_index);
-                    }
-                    log("\n\n");
-                }
-            }
-        }
-    }
+    // for *module: generator.module_hash
+    // {
+    //     if module.is_valid 
+    //     {
+    //         for *neighbor_list: module.constraint_data
+    //         {
+    //             if neighbor_list.neighbor_count > 0
+    //             {
+    //                 log("Module '%' has the following neighbors: ", module.hash_value);
+    //                 for index: 0..neighbor_list.neighbor_count - 1
+    //                 {
+    //                     hash_index := neighbor_list.neighbor_hash_values[index];
+    //                     log("%, module_index: %", hash_index, generator.module_hash[hash_index].unique_module_index);
+    //                 }
+    //                 log("\n\n");
+    //             }
+    //         }
+    //     }
+    // }
 
     result = push_array(arena, WFC_Module, generator.unique_module_count);
     for gen_module_index: 0..generator.unique_module_count - 1
@@ -981,7 +970,7 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
 
         new_module: WFC_Module;
         new_module.sprite = module_data.sprite_data;
-        new_module.weight = module_data.module_weight;
+        new_module.weight = 1 + sqrt(module_data.module_weight - 1);
         for constraint_index: 0..4 - 1
         {
             gen_constraint_data := *module_data.constraint_data[constraint_index];
@@ -999,11 +988,22 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
         result[gen_module_index] = new_module;
     }
 
+    for valid_hash: 0..generator.unique_module_count - 1 
+    {
+        hash_index := valid_hashes[valid_hash];
+        module     := *generator.module_hash[hash_index];
+        assert(module.is_valid);
+
+        array_free(module.constraint_data[NORTH].neighbor_hash_values);
+        array_free(module.constraint_data[SOUTH].neighbor_hash_values);
+        array_free(module.constraint_data[EAST].neighbor_hash_values);
+        array_free(module.constraint_data[WEST].neighbor_hash_values);
+    }
+
     //if allocated then asset_release_texture(texture_data);
     return result;
 }
 
 #scope_file
-example_image_filepath :: "../data/res/textures/DEBUG/OLM_test_input.png";
 tile_size              : iVector2 = .{16, 16};
 
