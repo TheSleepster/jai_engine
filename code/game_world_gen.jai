@@ -1,6 +1,5 @@
 /*
 TODO:
-  - [ ] Add the ability to precollapse tiles before generation, "seeding" the generation
 
 BACKBURNER:
   - [ ] A* path finding to tie the rooms together
@@ -17,6 +16,7 @@ DONE:
   - [x] Propogate collapses to all nearby tiles within a 3x3
         intersection of our tile.
   - [x] Improve the way we supply rules and options
+  - [x] Add the ability to precollapse tiles before generation, "seeding" the generation
 */
 
 ////////////////
@@ -201,6 +201,10 @@ WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Mod
     return new_chunk;
 }
 
+// TODO(Sleepster): It might be a better / more efficient idea to have
+// this function add to a list of cells to update. Just so we could
+// perform all of the updating at the same time rather than *here* every
+// single time someone asks us to collapse a cell.
 WFC_collapse_single_cell :: (chunk: *WFC_Gen_Chunk, value: u32, grid_pos: iVector2)
 {
     initial_cell := *chunk.initial_grid[grid_pos.x][grid_pos.y];
@@ -782,8 +786,6 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
                     result = false;
                     should_break = true;
                     break;
-                    //end_temporary_block(*scratch_arena);
-                    //WFC_generate_AC3(arena, gen_chunk);
                 }
 
                 if changed
@@ -818,19 +820,17 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
 WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
 {
     push_render_layer(draw_frame, 15);
-    initial_pos := (Vector2).{-482, -240};
+    initial_pos := (Vector2).{-100, -100};
     for x: 0..chunk.chunk_size.x -1
     {
         for y: 0..chunk.chunk_size.y - 1
         {
             cell := chunk.generation_grid[x][y];
 
-            new_pos := (Vector2).{initial_pos.x + (x * tile_size.x), initial_pos.y + (y * tile_size.y)};
-            draw_texture(draw_frame, new_pos, tile_size, *chunk.chunk_modules[cell.cell_value].sprite, WHITE);
+            new_pos := (Vector2).{initial_pos.x + (x * 8), initial_pos.y + (y * 8)};
+            draw_texture(draw_frame, new_pos, .{8, 8}, *chunk.chunk_modules[cell.cell_value].sprite, WHITE);
         }
     }
-
-    draw_texture(draw_frame, .{200, 0}, tile_size, *chunk.chunk_modules[2].sprite, WHITE);
 }
 
 
@@ -876,8 +876,8 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
     result: []WFC_Module;
     
     path, basename, ext := path_decomp(filepath);
-    atlas_sprite := asset_get_sprite(asset_manager, basename);
-    texture_data := asset_load_texture_from_path(filepath); 
+    atlas_sprite := asset_get_sprite(asset_manager,  basename);
+    texture_data := asset_get_texture(asset_manager, basename); 
 
     // TODO(Sleepster): When I'm not pissed off make this work properly 
     allocated: bool = false;

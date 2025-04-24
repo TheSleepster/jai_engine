@@ -73,6 +73,8 @@ Asset_Manager :: struct
 
 init_asset_manager_data :: (render_state: *Render_State, asset_manager: *Asset_Manager)
 {
+    stbi_set_flip_vertically_on_load(1);
+
     error := FT_Init_FreeType(*ft_library);
     assert(!error);
 
@@ -196,6 +198,10 @@ init_asset_image_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void
     }
 }
 
+asset_load_texture :: (asset_manager: *Asset_Manager, filepath: string, make_GPU_texture := false)
+{
+}
+
 // TODO(Sleepster): This is stupid! why not check the hash??? Also
 // this completely discards the texture's hash name! This is also stupid!
 // very bad!!!
@@ -229,7 +235,6 @@ asset_load_texture_from_path :: (filepath: string, load_automatically := false) 
 // TODO(Sleepster): Why do we not search the asset manager first to see if it's already loaded??? 
 asset_load_texture_data :: (texture: *Texture2D, load_automatically := false) -> bool
 {
-    stbi_set_flip_vertically_on_load(1);
 
     texture.data = stbi_load(texture.filepath.data, *texture.width, *texture.height, *texture.channels, 0);
     if texture.data != null
@@ -837,7 +842,7 @@ copy_glyph_to_page_bitmap :: (face: FT_Face, glyph: *Font_Glyph_Data)
     glyph.advance                 = cast,trunc(s16)(face.glyph.advance.x >> 6);
 
     metrics := *face.glyph.metrics;
-    glyph.ascent = cast,trunc(s16) (metrics.horiBearingY >> 6);
+    glyph.ascent = cast,trunc(s16)(metrics.horiBearingY >> 6);
 
     atlas_dest := font_find_next_atlas_line(glyph.page, b.width, b.rows);
 
@@ -852,8 +857,8 @@ copy_glyph_to_page_bitmap :: (face: FT_Face, glyph: *Font_Glyph_Data)
 
     bitmap := *glyph.page.bitmap;
 
-    rows  := cast(s32) b.rows; // FreeType has changed the rows and width types to unsigned, and they may be zero
-    width := cast(s32) b.width;
+    rows  := cast(s32)b.rows; // FreeType has changed the rows and width types to unsigned, and they may be zero
+    width := cast(s32)b.width;
     for j : 0..rows-1 {
         for i : 0..width-1 {
             source_pixel := b.buffer[(rows - 1 - j) * b.pitch + i];

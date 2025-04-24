@@ -167,7 +167,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     world_frame:  World_Frame_Data;
 
     // NOTE(Sleepster): CREATE MATRICES
-    size_data := (Vector3).{window_data.window_size.x / 960.0, window_data.window_size.y / 480.0, 1.0};
+    size_data := (Vector3).{window_data.window_size.x / 180.0, window_data.window_size.y / 120.0, 1.0};
     v2_approach(*game_camera.current_position, game_camera.target_position, game_camera.travel_rate, time.delta_time);
 
     scale_matrix       := mat4_make_scale(size_data);
@@ -342,10 +342,17 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         filepath :: "../data/res/textures/DEBUG/OLM_test_input2.png";
         test_modules := WFC_analyze(*game_state.game_arena, asset_manager, filepath);
 
-        generation_size := (iVector2).{10, 10};
+        generation_size := (iVector2).{20, 20};
         new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, test_modules);
 
-        WFC_collapse_single_cell(*new_chunk, 2, .{0, 0});
+        // WALL LEFT
+        WFC_collapse_single_cell(*new_chunk, 0, .{0, 9});
+        // WALL BOTTOM
+        WFC_collapse_single_cell(*new_chunk, 1, .{9, 0});
+        // WALL TOP
+        WFC_collapse_single_cell(*new_chunk, 4, .{5, 19});
+        // WALL RIGHT
+        WFC_collapse_single_cell(*new_chunk, 5, .{19, 10});
 
         generated: bool;
         while !generated
@@ -372,9 +379,9 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         array_add(*input_manager.game_actions, *interact);
         array_add(*input_manager.game_actions, *attack);
 
-        // player := spawn_entity(game_state, Entity_ID.entity_player);
-        // player.position.x = -30;
-        // player.speed      =  0.8;
+        player := spawn_entity(game_state, Entity_ID.entity_player);
+        player.position.x = -30;
+        player.speed      =  0.8;
 
         // for 0..20 - 1
         // {

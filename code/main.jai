@@ -39,10 +39,18 @@
 #load   "game_entry.jai";
 
 /*
-    TODO:
-       - Multithreading
-       - replace talloc() with a garbage arean placed in the context
-       - rewrite image asset loader
+TODO:
+  - [ ] Rewrite the renderer and shaders to support texelFetch.
+  - [ ] Rendering options for the renderer
+  - [ ] Multithreading API
+  - [ ] Revise the asset loader
+  - [ ] Look for other rendering options beyond that of OpenGL
+  - [ ] Add Lighting to the renderer.
+  - [ ] Rewrite the drawing API so that it can better support XForms without needing seperate functions
+  - [ ] Fix the asset loader image path so that images are only loaded in one place.
+  - [ ] Fix the dynamic font loader so that it actually works as intended and doesn't crash when we run out of atlas space
+
+DONE:
 */
 
 DEBUG :: 0;
