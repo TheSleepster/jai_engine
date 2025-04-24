@@ -86,7 +86,7 @@ create_texture_from_data :: (texture: *Texture2D) -> bool
                      GL_RGBA, GL_UNSIGNED_BYTE, texture.data);
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        texture.is_loaded = true;
+        texture.is_GPU_texture = true;
         return true;
     }
     else

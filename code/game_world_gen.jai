@@ -875,20 +875,9 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
 {
     result: []WFC_Module;
     
-    path, basename, ext := path_decomp(filepath);
-    atlas_sprite := asset_get_sprite(asset_manager,  basename);
-    texture_data := asset_get_texture(asset_manager, basename); 
-
-    // TODO(Sleepster): When I'm not pissed off make this work properly 
-    allocated: bool = false;
-    // if texture_data.data == null
-    // {
-    //     hash_name := texture_data.hash_name;
-    //     texture_data.* = ;
-    //     texture_data.hash_name = hash_name;
-
-    //     allocated = true;
-    // }
+    path, basename, ext     := path_decomp(filepath);
+    atlas_sprite            := asset_get_sprite(asset_manager,  basename);
+    texture_data, allocated := asset_load_texture_from_path(asset_manager, filepath); 
 
     grid_width  := texture_data.width  / tile_size.x;
     grid_height := texture_data.height / tile_size.y;
@@ -1062,7 +1051,7 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
         array_free(module.constraint_data[WEST].neighbor_hash_values);
     }
 
-    //if allocated then asset_release_texture(texture_data);
+    if allocated then asset_release_texture(texture_data);
     return result;
 }
 

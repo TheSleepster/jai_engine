@@ -161,16 +161,17 @@ asset_get_sprite :: (asset_manager: *Asset_Manager, key: string) -> *Atlas_Sprit
 
 Texture2D :: struct
 {
-    texID     :  u32;
-    width     :  s32;
-    height    :  s32;
-    channels  :  s32;
+    texID          :  u32;
+    width          :  s32;
+    height         :  s32;
+    channels       :  s32;
 
-    data      : *u8;
-    filepath  :  string;
-    hash_name :  string;
+    data           : *u8;
+    filepath       :  string;
+    hash_name      :  string;
 
-    is_loaded :  bool;
+    is_loaded      :  bool;
+    is_GPU_texture :  bool;
 
     original_index_before_sorting : s32;
 };
@@ -198,59 +199,60 @@ init_asset_image_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void
     }
 }
 
-asset_load_texture :: (asset_manager: *Asset_Manager, filepath: string, make_GPU_texture := false)
+asset_load_texture_from_path :: (asset_manager: *Asset_Manager, filepath: string, make_GPU_texture := false) -> *Texture2D, bool
 {
-}
+    result: *Texture2D;
+    allocated: bool;
 
-// TODO(Sleepster): This is stupid! why not check the hash??? Also
-// this completely discards the texture's hash name! This is also stupid!
-// very bad!!!
-asset_load_texture_from_path :: (filepath: string, load_automatically := false) -> Texture2D
-{
-    result: Texture2D;
-    result.filepath  = filepath;
-
-    stbi_set_flip_vertically_on_load(1);
-    result.data = stbi_load(result.filepath.data, *result.width, *result.height, *result.channels, 0);
-    if result.data != null
+    path, basename, ext := path_decomp(filepath);
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.textures, basename);
+    if asset_slot
     {
-        if load_automatically
+        manager_texture := *asset_slot.texture_data;
+        if !manager_texture.is_loaded
         {
-            loaded := create_texture_from_data(*result);
-            if !loaded
-            {
-                log("[ERROR]: Failed to load image from filepath: '%'...\n", filepath);
-                return (Texture2D).{};
-            }
+            manager_texture.data = stbi_load(manager_texture.filepath.data, *manager_texture.width, *manager_texture.height, *manager_texture.channels, 0);
+            manager_texture.is_loaded = true;
+
+            allocated = true;
         }
+
+        assert(manager_texture.data != null);
+        result = manager_texture;
     }
     else
     {
-        log("[ERROR]: Failed to extract the image data from file: '%'...\n", filepath);
+        log("[ERROR]: Failed to find filepath: '%' in the asset_hash...\n", filepath);
     }
 
-    return result;
+    return result, allocated;
 }
 
-// TODO(Sleepster): Why do we not search the asset manager first to see if it's already loaded??? 
-asset_load_texture_data :: (texture: *Texture2D, load_automatically := false) -> bool
+asset_load_texture_data :: (asset_manager: *Asset_Manager, result: *Texture2D,  make_GPU_texture := false) -> bool
 {
+    allocated: bool;
 
-    texture.data = stbi_load(texture.filepath.data, *texture.width, *texture.height, *texture.channels, 0);
-    if texture.data != null
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.textures, result.hash_name);
+    if asset_slot
     {
-        loaded: bool;
-        if load_automatically then loaded = create_texture_from_data(texture);
-        else loaded = true;
+        manager_texture := *asset_slot.texture_data;
+        if !manager_texture.is_loaded
+        {
+            manager_texture.data = stbi_load(manager_texture.filepath.data, *manager_texture.width, *manager_texture.height, *manager_texture.channels, 0);
 
-        return loaded;
+            result.is_loaded = true;
+            allocated = true;
+        }
+
+        assert(manager_texture.data != null);
+        result.* = manager_texture.*;
     }
     else
     {
-        log("[ERROR]: Failed to extract the image data from file: '%'...\n", texture.filepath);
+        log("[ERROR]: Failed to find the texture: '%' in the asset_hash...\n", result.hash_name);
     }
 
-    return false;
+    return allocated;
 }
 
 push_sprite_into_atlas :: (atlas: *Texture2D, sprite: *Atlas_Sprite)
@@ -350,7 +352,7 @@ load_texture_data_from_dir :: (info: *File_Visit_Info, data: *void)
         texture_data.hash_name = basename;
 
         texture_slot.slot_state = Asset_Slot_State.LOADED;
-        asset_load_texture_data(*texture_data);
+        asset_load_texture_data(transient_state.asset_manager, *texture_data);
         
         {
             using transient_state.asset_manager;
@@ -396,7 +398,7 @@ asset_get_texture :: (asset_manager: *Asset_Manager, key: string) -> *Texture2D
         texture := *asset_slot.texture_data;
         if !texture.data
         {
-            texture.* = asset_load_texture_from_path(texture.filepath);
+            texture = asset_load_texture_from_path(asset_manager, texture.filepath);
         }
     }
     else
