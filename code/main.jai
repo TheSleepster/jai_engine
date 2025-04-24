@@ -47,10 +47,13 @@ TODO:
   - [ ] Look for other rendering options beyond that of OpenGL
   - [ ] Add Lighting to the renderer.
   - [ ] Rewrite the drawing API so that it can better support XForms without needing seperate functions
-  - [ ] Fix the asset loader image path so that images are only loaded in one place.
   - [ ] Fix the dynamic font loader so that it actually works as intended and doesn't crash when we run out of atlas space
+  - [ ] Hotreloading of the game file??? 
+  - [ ] Improve hotreloading of the assets???
+  - [ ] Break shaders into hotloadable systems
 
 DONE:
+  - [x] Fix the asset loader image path so that images are only loaded in one place.
 */
 
 DEBUG :: 0;
@@ -161,9 +164,9 @@ main :: ()
                                               cast(s32)window_data.window_size.x,
                                               cast(s32)window_data.window_size.y,
                                               SDL_WINDOW_OPENGL|SDL_WINDOW_SHOWN|SDL_WINDOW_RESIZABLE);
-        input_manager.keyboard_input.SDL_keys = SDL_GetKeyboardState(null);
         if window_data.window != null
         {
+            input_manager.keyboard_input.SDL_keys = SDL_GetKeyboardState(null);
             // ARENA INIT
             {
                 // POOL INIT

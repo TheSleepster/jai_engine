@@ -1,9 +1,14 @@
 /*
 TODO:
+  - [ ] Test the idea of layered room generation. (First generate the floor, then the walls, etc.) 
+  - [ ] Implment a function that can place a room of certain dimensions, allow precollapsed tiles during this to "seed" the room
+  - [ ] Create a higher level structure for storing these generated rooms and their layout in the world
+  - [ ] Create a "generator" that can control HOW the rooms are placed and what their sizes should be
+  - [ ] Create a method of connecting the rooms together and cull the unconnected rooms
 
 BACKBURNER:
   - [ ] A* path finding to tie the rooms together
-  - [ ] Compress the options so that they also store a rotation??
+  - [ ] Compress the generated options so that they also store a rotation??
   - [ ] Backtracking on AC-3?
   - [ ] Path contraints?
 
@@ -13,8 +18,7 @@ DONE:
   - [x] Make a LIST of the tiles with the lowest entropy, instead of
         picking just the first one we see. Then select randomly from that
         list.
-  - [x] Propogate collapses to all nearby tiles within a 3x3
-        intersection of our tile.
+  - [x] Propogate collapses to all nearby tiles
   - [x] Improve the way we supply rules and options
   - [x] Add the ability to precollapse tiles before generation, "seeding" the generation
 */
@@ -33,7 +37,6 @@ Bitset :: struct
 
 bitset_create :: (arena: *Memory_Arena, bit_count: s64) -> Bitset #must
 {
-    // NOTE(Sleepster): assert you're not stupid...
     assert(bit_count > 0);
     
     result: Bitset;
@@ -515,7 +518,6 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
                             result = false;
                             should_break = true;
                             break;
-                            //WFC_generate_AC1(arena, gen_chunk);
                         }
                     }
                     else
@@ -762,7 +764,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
                 dir          := get_direction_from_vector(arc.arc_dir);
                 opposite_dir := get_direction_from_vector(get_opposite_vector(arc.arc_dir));  
 
-                // Module A is the neighbor, Module B is the collapsed cell
+                // NOTE(Sleepster): Module A is the neighbor, Module B is the collapsed cell
                 changed := WFC_revise_domain(gen_chunk, arc.domain_B, arc.domain_A, dir);
                 arc.domain_A.entropy = cast(u32)(bitset_popcount(*arc.domain_A.cell_mask));
                 if arc.domain_A.entropy == 0
@@ -1056,5 +1058,5 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
 }
 
 #scope_file
-tile_size              : iVector2 = .{16, 16};
+tile_size: iVector2 = .{16, 16};
 
