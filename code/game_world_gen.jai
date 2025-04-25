@@ -116,10 +116,34 @@ operator != :: (A: Bitset, B: Bitset) -> bool
     return false;
 }
 
-
 ////////////////////////
 // WFC MAP GENERATION
 ////////////////////////
+
+
+/*
+FUTURE IDEA:
+
+WFC_Tile_Chunk :: struct
+{
+    generation_grid : [][]WFC_Cell;
+    initial_grid    : [][]WFC_Cell;
+}
+
+WFC_Gen_Chunk :: struct
+{
+    chunk_size    :   iVector2;
+    chunk_modules : []WFC_Module;
+
+    floor_chunk   : []WFC_Tile_Chunk;
+    wall_chunk    : []WFC_Tile_Chunk;
+    decor_chunk   : []WFC_Tile_Chunk;
+
+    arc_queue     :   WFC_Arc_Queue;
+};
+*/
+
+
 
 using Directions :: enum u8
 {

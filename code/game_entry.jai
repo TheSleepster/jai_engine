@@ -754,7 +754,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     draw_frame.active_projection_matrix = *world_frame.screen_projection;
 
     push_render_layer(draw_frame, 1);
-    //draw_text(draw_frame, game_font, "Testing, some commas and shit", .{400, -100}, asset_manager.small_font_size, WHITE);
+    draw_text(draw_frame, game_font, "Testing, some commas and shit", .{400, -100}, asset_manager.small_font_size, WHITE);
     push_render_layer(draw_frame, 0);
 }
 

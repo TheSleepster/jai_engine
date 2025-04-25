@@ -1,35 +1,3 @@
-#if OS == .WINDOWS
-{
-    W :: #import "Windows";
-    platform_allocate_memory :: inline (size: u64) -> *void
-    {
-        data := W.VirtualAlloc(null, xx size, W.MEM_COMMIT|W.MEM_RESERVE, W.PAGE_READWRITE);
-        //log("[INFO]: Virtual alloc called with a size of: %mb\n", cast(float32)(size / 1048576.0));
-        return data;
-    }
-
-    platform_deallocate_memory :: (data: *void, size: u64)
-    {
-        W.VirtualFree(data, 0, W.MEM_RELEASE);
-    }
-}
-#if OS == .LINUX
-{
-    P :: #import "POSIX";
-
-    platform_allocate_memory :: inline (size: u64) -> *void
-    {
-        data := P.mmap(null, size, P.PROT_READ|P.PROT_WRITE, P.MAP_PRIVATE|P.MAP_ANONYMOUS, -1, 0);
-        log("[INFO]: mmap called with a size of: %mb\n", cast(float32)(size / 1048576.0));
-        return data;
-    }
-
-    platform_deallocate_memory :: inline (data: *void, size: u64)
-    {
-        P.munmap(data, size);
-    }
-}
-
 Memory_Arena_Footer :: struct
 {
     last_used      :  u64;

@@ -70,6 +70,41 @@ Render_State :: struct
     vsync         : bool;
 };
 
+Filter_Type :: enum
+{
+    NEAREST;
+    LINEAR;
+};
+
+update_texture_from_bitmap :: (bitmap: *Bitmap, texture: *Texture2D, has_AA := false, filter_type: Filter_Type = Filter_Type.NEAREST)
+{
+    glBindTexture(GL_TEXTURE_2D, texture.texID);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    if filter_type ==
+    {
+        case .NEAREST;
+        {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        }
+        case .LINEAR;
+        {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        }
+    }
+    if has_AA then glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, 
+                 xx bitmap.width, xx bitmap.height, 0, 
+                 GL_RGBA, GL_UNSIGNED_BYTE, bitmap.data.data);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 create_texture_from_data :: (texture: *Texture2D) -> bool
 {
     if !texture.is_loaded

@@ -1,3 +1,35 @@
+#if OS == .WINDOWS
+{
+    W :: #import "Windows";
+    platform_allocate_memory :: inline (size: u64) -> *void
+    {
+        data := W.VirtualAlloc(null, xx size, W.MEM_COMMIT|W.MEM_RESERVE, W.PAGE_READWRITE);
+        //log("[INFO]: Virtual alloc called with a size of: %mb\n", cast(float32)(size / 1048576.0));
+        return data;
+    }
+
+    platform_deallocate_memory :: (data: *void, size: u64)
+    {
+        W.VirtualFree(data, 0, W.MEM_RELEASE);
+    }
+}
+#if OS == .LINUX
+{
+    P :: #import "POSIX";
+
+    platform_allocate_memory :: inline (size: u64) -> *void
+    {
+        data := P.mmap(null, size, P.PROT_READ|P.PROT_WRITE, P.MAP_PRIVATE|P.MAP_ANONYMOUS, -1, 0);
+        log("[INFO]: mmap called with a size of: %mb\n", cast(float32)(size / 1048576.0));
+        return data;
+    }
+
+    platform_deallocate_memory :: inline (data: *void, size: u64)
+    {
+        P.munmap(data, size);
+    }
+}
+
 #import "Basic";
 #import "Math";
 #import "String";
@@ -43,17 +75,26 @@ TODO:
   - [ ] Rewrite the renderer and shaders to support texelFetch.
   - [ ] Rendering options for the renderer
   - [ ] Multithreading API
-  - [ ] Revise the asset loader
-  - [ ] Look for other rendering options beyond that of OpenGL
+  - [ ] Revise the asset manager
   - [ ] Add Lighting to the renderer.
   - [ ] Rewrite the drawing API so that it can better support XForms without needing seperate functions
   - [ ] Fix the dynamic font loader so that it actually works as intended and doesn't crash when we run out of atlas space
   - [ ] Hotreloading of the game file??? 
-  - [ ] Improve hotreloading of the assets???
-  - [ ] Break shaders into hotloadable systems
+  - [ ] Improve hot reloading of the assets???
+  - [ ] Break shaders into hot reloadable systems
+  - [ ] Create "win32_engine.jai" and "win32_linux.jai"
+  - [ ] Allow textures to be evicted from both memory and the texture atlas. 
+        We can do this by adding a bitmap to the atlas and storing in the texture itself the beginning and end 
+        pointers into the texture atlas' data buffer.
+  - [ ] Change how textures are thrown into the atlas 
+  - [ ] Fix the sound mixer to not explode and die when the framerate drops
+
+BACKBURNER:
+  - [ ] Platform indepenant networking API, jai's module isn't too great me thinks. 
+  - [ ] Look for other rendering options beyond that of OpenGL (most likely D3D11, but that defeats the point of ever using SDL...)
 
 DONE:
-  - [x] Fix the asset loader image path so that images are only loaded in one place.
+  - [x] Fix the asset loader image path so that images are only loaded when needed (search the hash before loading).
 */
 
 DEBUG :: 0;
@@ -359,28 +400,35 @@ build :: ()
 {
     #import "Compiler";
     #import "Basic";
+    
+    set_build_options_dc(.{do_output=false});
 
-    workspace := compiler_create_workspace("Target workspace");
-    if !workspace
-    {
-        log("Workspace creation has failed...\n");
-        return;
-    }
+    workspace := compiler_create_workspace();
+
+    intercept_flags: Intercept_Flags;
+    compiler_begin_intercept(workspace, intercept_flags);
 
     options := get_build_options(workspace);
+    copy_commonly_propagated_fields(get_build_options(), *options);
+
+    options.output_executable_name           = "game_DEBUG";
+    options.output_type                      = .EXECUTABLE;
+    options.output_path                      = "../build/";
+    options.text_output_flags                = .OUTPUT_LINK_LINE;
+    options.use_visual_studio_message_format = true;
+    options.use_natvis_compatible_types      = true;
+    options.dead_code_elimination            = .ALL;
 
     args := options.compile_time_command_line;
     release := array_find(args, "release");
 
-    options.output_executable_name = "game_DEBUG";
-
     if release set_optimization(*options, .VERY_OPTIMIZED, false);
-    options.dead_code_elimination = .ALL;
+    else set_optimization(*options, .VERY_DEBUG);
+
     set_build_options(options, workspace);
-    set_build_options_dc(.{do_output = false});
+    compiler_end_intercept(workspace);
 
-
-    add_build_file(#file, workspace);
+    print("Compilation Complete...\n");
 }
 
 //#run build();

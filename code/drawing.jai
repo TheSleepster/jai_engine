@@ -60,8 +60,6 @@ create_draw_quad :: (draw_frame          : *Draw_Frame_Data,
                      rotation            : float,
                      render_color        : Vector4) -> Render_Quad
 {
-    DEBUG_profile_function();
-    
     assert(draw_frame.draw_frame_quad_counter + 1 < MAX_QUADS_PER_DRAW);
     top    := position.y;
     bottom := position.y + render_size.y;
@@ -111,8 +109,6 @@ create_draw_quad :: (draw_frame          : *Draw_Frame_Data,
 
 draw_quad_projected :: (draw_frame : *Draw_Frame_Data, quad : *Render_Quad, world_to_clip : Matrix4) -> *Render_Quad
 {
-    DEBUG_profile_function();
-    
     assert(draw_frame.draw_frame_quad_counter + 1 < MAX_QUADS_PER_DRAW);
     
     quad.bottom_left.vPosition  = multiply(world_to_clip, quad.bottom_left.vPosition);
@@ -141,7 +137,6 @@ draw_quad_projected :: (draw_frame : *Draw_Frame_Data, quad : *Render_Quad, worl
     return render_quad;
 }
 
-// TODO(Sleepster): write my own damn math library because "transpose" pisses me the fuck off.
 draw_quad_in_view :: (draw_frame : *Draw_Frame_Data, quad : *Render_Quad) -> *Render_Quad
 {
     world_to_clip := multiply(draw_frame.active_view_matrix, draw_frame.active_projection_matrix);
@@ -244,33 +239,12 @@ prepare_string :: (page : *Font_Page, text: string) -> s32
         
         glyph     := get_utf8_glyph(page, temp);
         result    += glyph.glyph_data.atlas_size.x + glyph.advance;
-        
         temp       = unicode_next_character(temp);
     }
     
     if page.bitmap_modified
     {
-        if page.texture.texID == 0
-        {
-            glGenTextures(1, *page.texture.texID);
-            print("Font Texture Generated\n");
-        }
-        
-        glBindTexture(GL_TEXTURE_2D, page.texture.texID);
-        
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1);
-        
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, 
-                     xx page.bitmap.width, xx page.bitmap.height, 0, 
-                     GL_RGBA, GL_UNSIGNED_BYTE, page.bitmap.data.data);
-        
-        glBindTexture(GL_TEXTURE_2D, 0);
+        update_texture_from_bitmap(*page.bitmap, *page.texture, true, Filter_Type.LINEAR);
         page.bitmap_modified = false;
     }
     return result;
@@ -286,7 +260,6 @@ draw_text :: (draw_frame   : *Draw_Frame_Data,
     font_page := asset_get_font_at_size(dynamic_font, font_scale);
     if font_page != null && font_page.is_valid == true
     {
-        // TODO(Sleepster): Hey maybe don't draw spaces and such  
         total_width  : s32 = prepare_string(font_page, text);
         starting_pos := (Vector2).{center_pos.x - (total_width * 0.5), center_pos.y};
         render_pos   := starting_pos;
@@ -298,7 +271,7 @@ draw_text :: (draw_frame   : *Draw_Frame_Data,
             char.data = temp; 
             char.count = 1;
 
-            glyph     := get_utf8_glyph(font_page, temp);
+            glyph := get_utf8_glyph(font_page, temp);
             if temp == " "
             {
                 render_pos.x += glyph.advance;
@@ -308,7 +281,8 @@ draw_text :: (draw_frame   : *Draw_Frame_Data,
             draw_texture(draw_frame,
                          (Vector2).{floor(render_pos.x + glyph.offset_x), floor(render_pos.y + (glyph.ascent - glyph.glyph_data.atlas_size.y))},
                          .{xx glyph.glyph_data.atlas_size.x, xx glyph.glyph_data.atlas_size.y},
-                         *glyph.glyph_data, color);
+                         *glyph.glyph_data,
+                         color);
             
             render_pos.x += glyph.advance;
             temp          = unicode_next_character(temp);
