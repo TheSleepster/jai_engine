@@ -88,9 +88,11 @@ TODO:
         pointers into the texture atlas' data buffer.
   - [ ] Change how textures are thrown into the atlas 
   - [ ] Fix the sound mixer to not explode and die when the framerate drops
+  - [ ] Fix game_action_* api so that you can do things like so: game_action_is_pressed(game_state.input_manager, .INTERACT
+  - [ ] Allow the renderer to support pivots (left, center, right, top left, top right)
 
 BACKBURNER:
-  - [ ] Platform indepenant networking API, jai's module isn't too great me thinks. 
+  - [ ] Platform indepedant networking API, jai's module isn't too great me thinks. 
   - [ ] Look for other rendering options beyond that of OpenGL (most likely D3D11, but that defeats the point of ever using SDL...)
 
 DONE:
@@ -208,6 +210,7 @@ main :: ()
         if window_data.window != null
         {
             input_manager.keyboard_input.SDL_keys = SDL_GetKeyboardState(null);
+            random_seed(*context.random_state, rdtsc());
             // ARENA INIT
             {
                 // POOL INIT
@@ -240,7 +243,7 @@ main :: ()
 
                 // GAME MEMORY 
                 {
-//                    game_state.game_arena = init_arena(*game_memory.permanent_storage, xx MB(200));
+                    //game_state.game_arena = init_arena(*game_memory.permanent_storage, xx MB(200));
                 }
 
                 game_state.input_manager  = *input_manager;

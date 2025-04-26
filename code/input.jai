@@ -372,6 +372,7 @@ game_action_add_action :: inline (input_manager: *Input_Manager, key_index: s32,
     array_add(*input_manager.game_actions, *action);
 }
 
+// TODO(Sleepster): Instead of passing a pointer to the game action, why not just use the game_action enum index??? 
 game_action_is_pressed :: inline (input_manager: *Input_Manager, action: *Game_Action) -> bool
 {
     is_pressed: bool;

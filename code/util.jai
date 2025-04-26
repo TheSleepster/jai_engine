@@ -94,6 +94,15 @@ hex_to_rgba :: (hex: u32) -> Vector4
     return color;
 }
 
+v2_floor :: inline (A: Vector2) -> Vector2
+{
+    result: Vector2 = ---;
+    result.x = floor(A.x);
+    result.y = floor(A.y);
+
+    return result;
+}
+
 ////////////////////
 // VECTOR OPERATORS
 ////////////////////
@@ -111,6 +120,24 @@ operator + :: (A: iVector2, B: Vector2) -> iVector2
     result: iVector2 = ---;
     result.x = A.x + cast(s32)B.x;
     result.y = A.y + cast(s32)B.y;
+
+    return result;
+}
+
+v2_cast :: inline (vector: iVector2) -> Vector2
+{
+    result: Vector2 = ---;
+    result.x = xx vector.x;
+    result.y = xx vector.y;
+
+    return result;
+}
+
+iv2_cast :: inline (vector: Vector2) -> iVector2
+{
+    result: iVector2 = ---;
+    result.x = xx vector.x;
+    result.y = xx vector.y;
 
     return result;
 }

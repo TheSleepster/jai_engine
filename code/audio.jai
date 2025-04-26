@@ -69,20 +69,6 @@ Wave_FMT :: struct
     SubFormat           : [16]u8;
 }#no_padding;
 
-RIFF_CODE :: (incode : string) -> u32
-{
-    A : u32 = incode.data[0];
-    B : u32 = incode.data[1];
-    C : u32 = incode.data[2];
-    D : u32 = incode.data[3];
-    return((cast(u32)(A) << 0) | (cast(u32)(B) << 8) | (cast(u32)(C) << 16) | (cast(u32)(D) << 24));
-}
-
-fmt_code_id  :: #run RIFF_CODE("fmt ");
-riff_code_id :: #run RIFF_CODE("RIFF");
-wave_code_id :: #run RIFF_CODE("WAVE");
-data_code_id :: #run RIFF_CODE("data");
-
 WAVE_Chunk_ID :: enum u32
 {
     fmt     :: fmt_code_id;
@@ -97,7 +83,7 @@ Riff_Iterator :: struct
     end_cursor : *u8;
 }
 
-parse_chunk_at :: inline (at : *u8, end : *u8) -> Riff_Iterator
+parse_chunk_at :: inline (at: *u8, end: *u8) -> Riff_Iterator
 {
     result : Riff_Iterator;
     result.at_cursor  = at;
@@ -106,52 +92,52 @@ parse_chunk_at :: inline (at : *u8, end : *u8) -> Riff_Iterator
     return result;
 }
 
-get_next_chunk :: inline (chunk : Riff_Iterator) -> Riff_Iterator
+get_next_chunk :: inline (chunk: Riff_Iterator) -> Riff_Iterator
 {
     chunk_data := cast(*Wave_Chunk)chunk.at_cursor;
     chunk_size := (chunk_data.chunk_size + 1) & ~1;
-    new_chunk := chunk;
+    new_chunk  := chunk;
     new_chunk.at_cursor += size_of(Wave_Chunk) + chunk_size;
     return new_chunk;
 }
 
-is_chunk_valid :: inline (chunk : Riff_Iterator) -> bool
+is_chunk_valid :: inline (chunk: Riff_Iterator) -> bool
 {
     return(chunk.at_cursor < chunk.end_cursor);
 }
 
-get_chunk_type :: inline (chunk : Riff_Iterator) -> WAVE_Chunk_ID
+get_chunk_type :: inline (chunk: Riff_Iterator) -> WAVE_Chunk_ID
 {
     chunk_data := cast(*Wave_Chunk)chunk.at_cursor;
-    result := cast(WAVE_Chunk_ID)chunk_data.ID;
+    result     := cast(WAVE_Chunk_ID)chunk_data.ID;
     return result;
 }
 
-get_chunk_data :: inline (chunk : Riff_Iterator) -> *void
+get_chunk_data :: inline (chunk: Riff_Iterator) -> *void
 {
     result := cast(*void)(chunk.at_cursor + size_of(Wave_Chunk));
     return result;
 }
 
-get_chunk_data_size :: inline (chunk : Riff_Iterator) -> s32
+get_chunk_data_size :: inline (chunk: Riff_Iterator) -> s32
 {
     data := cast(*Wave_Chunk)chunk.at_cursor;
     return data.chunk_size;
 }
 
-load_wav_file :: (arena : *Memory_Arena, filepath : string) -> Loaded_Sound_Data 
+load_wav_file :: (arena: *Memory_Arena, filepath: string) -> Loaded_Sound_Data 
 {
-    result : Loaded_Sound_Data;
+    result: Loaded_Sound_Data;
     audio_file_data := read_entire_file(filepath);
     if audio_file_data.count > 0
     {
-        header_data : *Wave_Header  = cast(*Wave_Header)audio_file_data.data;
+        header_data: *Wave_Header  = cast(*Wave_Header)audio_file_data.data;
         assert(header_data.RIFF_ID == cast(u32)WAVE_Chunk_ID.RIFF_ID);
         assert(header_data.WAVE_ID == cast(u32)WAVE_Chunk_ID.WAVE_ID);
 
         audio_file_channel_count := 0;
         sample_data_chunk_size   := 0;
-        file_sample_data         : *s16;
+        file_sample_data: *s16;
 
         wave_file_iter := parse_chunk_at(cast(*u8)(header_data + 1), cast(*u8)(header_data + 1) + header_data.size - 4);
         while(is_chunk_valid(wave_file_iter))
@@ -161,7 +147,7 @@ load_wav_file :: (arena : *Memory_Arena, filepath : string) -> Loaded_Sound_Data
             {
                 case WAVE_Chunk_ID.fmt;
                 {
-                    format_data : *Wave_FMT = cast(*Wave_FMT)get_chunk_data(wave_file_iter);
+                    format_data: *Wave_FMT = cast(*Wave_FMT)get_chunk_data(wave_file_iter);
                     assert(format_data.wFormatTag     == 1);
                     assert(format_data.nSamplesPerSec == 48000);
                     assert(format_data.nBlockAlign    == (2 * format_data.nChannels));
@@ -193,14 +179,14 @@ load_wav_file :: (arena : *Memory_Arena, filepath : string) -> Loaded_Sound_Data
     return result;
 }
 
-create_sine_wave :: (buffer_data : *Audio_Buffer_Data)
+create_sine_wave :: (buffer_data: *Audio_Buffer_Data)
 {
     using buffer_data;
 
     amplitude := 30000;
     tone_hz   := 140;
 
-    for sample_index : 0..samples_to_output - 1
+    for sample_index: 0..samples_to_output - 1
     {
         time := sample_index / cast(float32)SAMPLES_PER_SECOND;
         primary_sample_buffer[sample_index] = cast(s16)((amplitude * sin(2.0 * PI * tone_hz * time)) / 250);
@@ -208,7 +194,7 @@ create_sine_wave :: (buffer_data : *Audio_Buffer_Data)
     }
 }
 
-fill_sound_buffer :: (primary_stream_buffer : *SDL_AudioStream, buffer_data : *Audio_Buffer_Data, device_id : u32)
+fill_sound_buffer :: (primary_stream_buffer: *SDL_AudioStream, buffer_data: *Audio_Buffer_Data, device_id: u32)
 {
     using buffer_data;
 
@@ -234,11 +220,11 @@ fill_sound_buffer :: (primary_stream_buffer : *SDL_AudioStream, buffer_data : *A
     }
 }
 
-clear_sound_buffer :: (buffer_data : *Audio_Buffer_Data)
+clear_sound_buffer :: (buffer_data: *Audio_Buffer_Data)
 {
     using buffer_data;
 
-    for sample_index : 0..sample_buffer_size - 1
+    for sample_index: 0..sample_buffer_size - 1
     {
         primary_sample_buffer[sample_index] = 0;
     }
@@ -260,17 +246,17 @@ pause_sound :: inline (playing_sound: *Playing_Sound)
     playing_sound.is_playing = false;
 }
 
-mixer_handle_all_playing_sounds :: (sound_manager : *Sound_Manager, time: Time_Data)
+mixer_handle_all_playing_sounds :: (sound_manager: *Sound_Manager, time: Time_Data)
 {
     transient_state := sound_manager.asset_manager.transient_state;
     using sound_manager;
 
     scratch_arena := begin_temporary_block(*sound_manager.sound_arena);
-    mixer_buffer_00 : *float32 = cast(*float32)push_size(*sound_manager.sound_arena, size_of(float32) * manager_buffer_info.samples_to_output);
-    mixer_buffer_01 : *float32 = cast(*float32)push_size(*sound_manager.sound_arena, size_of(float32) * manager_buffer_info.samples_to_output);
+    mixer_buffer_00: *float32 = cast(*float32)push_size(*sound_manager.sound_arena, size_of(float32) * manager_buffer_info.samples_to_output);
+    mixer_buffer_01: *float32 = cast(*float32)push_size(*sound_manager.sound_arena, size_of(float32) * manager_buffer_info.samples_to_output);
 
-    dest_00 : *float32 = mixer_buffer_00;
-    dest_01 : *float32 = mixer_buffer_01;
+    dest_00: *float32 = mixer_buffer_00;
+    dest_01: *float32 = mixer_buffer_01;
 
     if manager_buffer_info.samples_to_output != 0
     {
@@ -283,17 +269,17 @@ mixer_handle_all_playing_sounds :: (sound_manager : *Sound_Manager, time: Time_D
                 <<dest_01 = 0;
         }
 
-        playing_sound_ptr : **Playing_Sound = *sound_manager.first_playing_sound;
-        while(<<playing_sound_ptr != null)
+        playing_sound_ptr: **Playing_Sound = *sound_manager.first_playing_sound;
+        while(playing_sound_ptr.* != null)
         {
             sound_finished : bool;
-            current_sound := <<playing_sound_ptr;
+            current_sound := playing_sound_ptr.*;
             dest_00 = mixer_buffer_00;
             dest_01 = mixer_buffer_01;
             if current_sound.is_playing
             {
                 sample_count_to_mix := manager_buffer_info.samples_to_output;
-                sound_asset_data := asset_get_sound(sound_manager.asset_manager, current_sound.sound_tag);
+                sound_asset_data    := asset_get_sound(sound_manager.asset_manager, current_sound.sound_tag);
                 if sound_asset_data.sample_data != null && sound_asset_data.ready_to_use
                 {
                     mixing_count := sample_count_to_mix;
@@ -332,7 +318,7 @@ mixer_handle_all_playing_sounds :: (sound_manager : *Sound_Manager, time: Time_D
             }
             if sound_finished
             {
-                    <<playing_sound_ptr                    = current_sound.next_sound;
+                playing_sound_ptr.*                    = current_sound.next_sound;
                 current_sound.next_sound               = sound_manager.first_free_playing_sound;
                 sound_manager.first_free_playing_sound = current_sound;
             }
@@ -350,10 +336,10 @@ mixer_handle_all_playing_sounds :: (sound_manager : *Sound_Manager, time: Time_D
             defer dest_00 += 1;
             defer dest_01 += 1;
 
-                <<sample_buffer += cast(s16)((<<dest_00 * sound_manager.master_volume) + 0.5);
+            sample_buffer.* += cast(s16)((<<dest_00 * sound_manager.master_volume) + 0.5);
             sample_buffer   += 1;
 
-                <<sample_buffer += cast(s16)((<<dest_01 * sound_manager.master_volume) + 0.5);
+            sample_buffer.* += cast(s16)((<<dest_01 * sound_manager.master_volume) + 0.5);
             sample_buffer   += 1;
 
             manager_buffer_info.running_sample_index += 1;
@@ -362,3 +348,18 @@ mixer_handle_all_playing_sounds :: (sound_manager : *Sound_Manager, time: Time_D
 
     end_temporary_block(*scratch_arena);
 }
+
+#scope_file
+RIFF_CODE :: (incode: string) -> u32
+{
+    A : u32 = incode.data[0];
+    B : u32 = incode.data[1];
+    C : u32 = incode.data[2];
+    D : u32 = incode.data[3];
+    return((cast(u32)(A) << 0) | (cast(u32)(B) << 8) | (cast(u32)(C) << 16) | (cast(u32)(D) << 24));
+}
+
+fmt_code_id  :: #run RIFF_CODE("fmt ");
+riff_code_id :: #run RIFF_CODE("RIFF");
+wave_code_id :: #run RIFF_CODE("WAVE");
+data_code_id :: #run RIFF_CODE("data");

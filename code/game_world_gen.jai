@@ -1,16 +1,18 @@
 /*
 TODO:
-  - [ ] Test the idea of layered room generation. (First generate the floor, then the walls, etc.) 
-  - [ ] Implment a function that can place a room of certain dimensions, allow precollapsed tiles during this to "seed" the room
   - [ ] Create a higher level structure for storing these generated rooms and their layout in the world
   - [ ] Create a "generator" that can control HOW the rooms are placed and what their sizes should be
   - [ ] Create a method of connecting the rooms together and cull the unconnected rooms
+  - [ ] Test the idea of layered room generation. (First generate the floor, then the walls, etc.) 
+  - [ ] Add a field called "tile_types" to the WFC_Modules. 
+        Use a seperate image with different colors to denote the type of the tile (RED is hazard, GREEN is wall, BLUE is floor, etc.)
 
 BACKBURNER:
   - [ ] A* path finding to tie the rooms together
   - [ ] Compress the generated options so that they also store a rotation??
   - [ ] Backtracking on AC-3?
   - [ ] Path contraints?
+  - [ ] Map file format
 
 DONE:
   - [x] Create a queue for the propagation code rather than what we're doing now. (slow) 
@@ -21,6 +23,7 @@ DONE:
   - [x] Propogate collapses to all nearby tiles
   - [x] Improve the way we supply rules and options
   - [x] Add the ability to precollapse tiles before generation, "seeding" the generation
+  - [x] Implment a function that can place a room of certain dimensions, allow precollapsed tiles during this to "seed" the room
 */
 
 ////////////////
@@ -123,6 +126,13 @@ operator != :: (A: Bitset, B: Bitset) -> bool
 
 /*
 FUTURE IDEA:
+
+WFC_Tile_Type :: enum
+{
+    FLOOR;
+    WALL; 
+    DECOR;
+};
 
 WFC_Tile_Chunk :: struct
 {
@@ -843,6 +853,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
 // RENDERERING
 ////////////////
 
+// TODO(Sleepster): DEBUG, get rid of this 
 WFC_render :: (chunk: *WFC_Gen_Chunk, draw_frame: *Draw_Frame_Data)
 {
     push_render_layer(draw_frame, 15);
@@ -1081,6 +1092,169 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
     return result;
 }
 
+
+////////////////////
+// ROOM GENERATION
+////////////////////
+
+generate_enclosed_room :: (game_state: *Game_State, modules: []WFC_Module, generation_size: iVector2)
+{
+    new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
+
+    // WALL LEFT
+    WFC_collapse_single_cell(*new_chunk, 0, .{0, xx((generation_size.y * 0.5) - 1.0)});
+    // WALL BOTTOM
+    WFC_collapse_single_cell(*new_chunk, 1, .{xx((generation_size.x * 0.5) - 1.0), 0});
+    // WALL TOP
+    WFC_collapse_single_cell(*new_chunk, 4, .{xx((generation_size.x * 0.5) - 1.0), xx(generation_size.y - 1.0)});
+    // WALL RIGHT
+    WFC_collapse_single_cell(*new_chunk, 5, .{xx(generation_size.x - 1.0), xx(generation_size.y * 0.5)});
+
+    generated: bool;
+    while !generated
+    {
+        //generated = WFC_generate_AC1(*game_state.game_arena, *new_chunk);
+        generated = WFC_generate_AC3(*game_state.game_arena, *new_chunk);
+    }
+}
+
+/////////////////////
+// WORLD GENERATION
+/////////////////////
+
+world_to_tile_pos :: inline (world_pos: Vector2) -> iVector2
+{
+    result: iVector2 = ---;
+    result.x = cast(s32)floor(world_pos.x / tile_size.x);
+    result.y = cast(s32)floor(world_pos.y / tile_size.y);
+
+    return result;
+}
+
+tile_to_world_pos :: inline (tile_pos: iVector2) -> Vector2
+{
+    result: Vector2 = ---;
+    result.x = cast(float32)tile_pos.x * cast(float32)tile_size.x;
+    result.y = cast(float32)tile_pos.y * cast(float32)tile_size.y;
+
+    return result;
+}
+
+round_to_tile_pos :: inline (position: Vector2) -> Vector2
+{
+    result: Vector2 = ---;
+    result = tile_to_world_pos(world_to_tile_pos(position));
+
+    return result;
+}
+
+get_random_vec2 :: (minimum: Vector2, maximum: Vector2) -> Vector2
+{
+    return cast(Vector2).{random_get_within_range(*context.random_state, minimum.x, maximum.x),
+                          random_get_within_range(*context.random_state, minimum.y, maximum.y)};
+}
+
+is_room_overlapping :: (A: *Generation_Room, B: *Generation_Room) -> bool
+{
+    return A.position.x < B.position.x + B.size.x && A.position.x + A.size.x > B.position.x &&
+		   A.position.y + A.size.y > B.position.y && A.position.y < B.position.y + B.size.y;
+}
+
+get_random_within_radius :: (radius: float32) -> Vector2 
+{
+    result: Vector2 = ---;
+    
+    TAU      := 2 * PI;
+    theta    := TAU * random_get_zero_to_one(*context.random_state);
+
+    uniform  := random_get_zero_to_one(*context.random_state);
+    u_radius := radius * sqrt(uniform);
+
+    result.x  = u_radius * cos(theta);
+    result.y  = u_radius * sin(theta);
+
+    return result;
+}
+
+get_random_within_ellipse :: (elipse_width: float32, elipse_height: float32) -> Vector2 
+{
+    result: Vector2 = ---;
+    
+    TAU      := 2.0 * PI;
+    theta    := TAU * random_get_zero_to_one(*context.random_state);
+
+    uniform  := random_get_zero_to_one(*context.random_state);
+    u_radius := sqrt(uniform);
+
+    result.x  = (elipse_width  * u_radius * cos(theta));
+    result.y  = (elipse_height * u_radius * sin(theta));
+
+    return result;
+}
+
+
+Generation_Room :: struct
+{
+    position     : Vector2;
+    size         : Vector2;
+    velocity     : Vector2;
+};
+
+init_generation :: ()
+{
+    radius     := 25.0;
+    room_count := 150;
+    max_room_x : float32 = 30;
+    max_room_y : float32 = 30;
+
+    min_room_x : float32 = 5;
+    min_room_y : float32 = 5;
+
+    for room_index: 0..room_count - 1
+    {
+        room := *generation_rooms[room_index];
+        
+        //room_position := round_to_tile_pos(get_random_within_radius(radius));
+        room_position := round_to_tile_pos(get_random_within_ellipse(100, 30));
+        room_size     := get_random_vec2(.{min_room_x, min_room_y}, .{max_room_x, max_room_y});
+
+        room.position = room_position;
+        room.size     = room_size;
+    }
+}
+
+update_generation :: (draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
+{
+    finished: bool = true;
+    
+    repulsion_strength := 0.1;
+    for *A: generation_rooms
+    {
+        disperse_vector: Vector2;
+        for *B: generation_rooms
+        {
+            if A == B continue;
+            if is_room_overlapping(A, B)
+            {
+                finished   = false;
+                direction := (Vector2).{(A.position.x + (A.size.x * 0.5)) - (B.position.x + (B.size.x * 0.5)),
+                                        (A.position.y + (A.size.y * 0.5)) - (B.position.y + (B.size.y * 0.5))};
+
+                direction       *= repulsion_strength * tick_rate;
+                disperse_vector += direction;
+            }
+        }
+
+        A.position += disperse_vector;
+        draw_texture(draw_frame, v2_floor(A.position), iv2_cast(A.size), sprite_outline, WHITE);
+    }
+
+    return finished;
+}
+
 #scope_file
 tile_size: iVector2 = .{16, 16};
+generation_rooms: [250]Generation_Room;
 
+update_radius      := 20.0;
+epsilon            := 0.1;

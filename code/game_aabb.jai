@@ -45,5 +45,3 @@ range_v2_is_within :: inline (position: Vector2, range: Range_V2) -> bool
     return (position.x >= range.min.x) && (position.x <= range.max.x) &&
            (position.y >= range.min.y) && (position.y <= range.max.y);
 }
-
-

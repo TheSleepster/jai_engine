@@ -74,7 +74,7 @@ check_movement_actions :: (game_state: *Game_State, time: Time_Data)
     game_state.input_axis = normalize(game_state.input_axis);
 }
 
-world_to_tile_pos :: inline (world_pos: Vector2) -> iVector2
+OLD_world_to_tile_pos :: inline (world_pos: Vector2) -> iVector2
 {
     result: iVector2 = ---;
     result.x = cast(s32)floor(world_pos.x / TILE_SIZE);
@@ -83,7 +83,7 @@ world_to_tile_pos :: inline (world_pos: Vector2) -> iVector2
     return result;
 }
 
-tile_to_world_pos :: inline (tile_pos: iVector2) -> Vector2
+OLD_tile_to_world_pos :: inline (tile_pos: iVector2) -> Vector2
 {
     result: Vector2 = ---;
     result.x = cast(float32)tile_pos.x * cast(float32)TILE_SIZE;
@@ -92,10 +92,10 @@ tile_to_world_pos :: inline (tile_pos: iVector2) -> Vector2
     return result;
 }
 
-round_to_nearest_tile :: inline (pos: Vector2) -> Vector2
+OLD_round_to_nearest_tile :: inline (pos: Vector2) -> Vector2
 {
     result: Vector2 = ---;
-    result = tile_to_world_pos(world_to_tile_pos(pos));
+    result = OLD_tile_to_world_pos(OLD_world_to_tile_pos(pos));
 
     return result;
 }
@@ -146,6 +146,8 @@ reload_asset_pointers :: (asset_manager: *Asset_Manager)
     sprite_wood_chunk  = asset_get_sprite(asset_manager, "wood_chunk");
     sprite_WFC_input   = asset_get_sprite(asset_manager, "test_WFC_input");
 
+    sprite_outline     = asset_get_sprite(asset_manager, "outline");
+
     game_atlas         = default_sprite.atlas_texture;
     game_font          = asset_get_font(asset_manager, "LiberationMono-Regular");
 }
@@ -167,7 +169,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     world_frame:  World_Frame_Data;
 
     // NOTE(Sleepster): CREATE MATRICES
-    size_data := (Vector3).{window_data.window_size.x / 180.0, window_data.window_size.y / 120.0, 1.0};
+    //                                                  180                                 120
+    size_data := (Vector3).{window_data.window_size.x / 720.0, window_data.window_size.y / 540.0, 1.0};
     v2_approach(*game_camera.current_position, game_camera.target_position, game_camera.travel_rate, time.delta_time);
 
     scale_matrix       := mat4_make_scale(size_data);
@@ -342,25 +345,11 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         filepath :: "../data/res/textures/DEBUG/OLM_test_input2.png";
         test_modules := WFC_analyze(*game_state.game_arena, asset_manager, filepath);
 
-        generation_size := (iVector2).{20, 20};
-        new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, test_modules);
+        //generation_size := (iVector2).{30, 30};
+        //generate_enclosed_room(game_state, test_modules, generation_size);
 
-        // WALL LEFT
-        WFC_collapse_single_cell(*new_chunk, 0, .{0, 9});
-        // WALL BOTTOM
-        WFC_collapse_single_cell(*new_chunk, 1, .{9, 0});
-        // WALL TOP
-        WFC_collapse_single_cell(*new_chunk, 4, .{5, 19});
-        // WALL RIGHT
-        WFC_collapse_single_cell(*new_chunk, 5, .{19, 10});
-
-        generated: bool;
-        while !generated
-        {
-            //generated = WFC_generate_AC1(*game_state.game_arena, *new_chunk);
-            generated = WFC_generate_AC3(*game_state.game_arena, *new_chunk);
-        }
-
+        init_generation();
+        
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
 
@@ -379,9 +368,9 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         array_add(*input_manager.game_actions, *interact);
         array_add(*input_manager.game_actions, *attack);
 
-        player := spawn_entity(game_state, Entity_ID.entity_player);
-        player.position.x = -30;
-        player.speed      =  0.8;
+        // player := spawn_entity(game_state, Entity_ID.entity_player);
+        // player.position.x = -30;
+        // player.speed      =  0.8;
 
         // for 0..20 - 1
         // {
@@ -430,7 +419,10 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         reload_asset_pointers(asset_manager);
     }
 
+
     WFC_render(*new_chunk, draw_frame);
+
+    update_generation(draw_frame, time);
 
     // NOTE(Sleepster): UPDATE PLAYER
     world_frame.player = get_player(game_state.entity_manager);
@@ -511,7 +503,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
                 {
                     // NOTE(Sleepster): PLAYER BUILDING
                     collision: bool;
-                    position_to_place := round_to_nearest_tile(player.attached_entity.position + (.{4, 8} * player.direction)); 
+                    position_to_place := OLD_round_to_nearest_tile(player.attached_entity.position + (.{4, 8} * player.direction)); 
                     for index: 0..entity_manager.active_entity_counter
                     {
                         entity := *entity_manager.entities[index];
@@ -540,7 +532,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
                             offset_y = 8 * player.direction.y;
                         }
 
-                        player.attached_entity.position = round_to_nearest_tile(player.attached_entity.position + .{offset_x, offset_y}); 
+                        player.attached_entity.position = OLD_round_to_nearest_tile(player.attached_entity.position + .{offset_x, offset_y}); 
                         player.attached_entity = null;
                     }
                 }
@@ -754,7 +746,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     draw_frame.active_projection_matrix = *world_frame.screen_projection;
 
     push_render_layer(draw_frame, 1);
-    draw_text(draw_frame, game_font, "Testing, some commas and shit", .{400, -100}, asset_manager.small_font_size, WHITE);
+    //draw_text(draw_frame, game_font, "Testing, some commas and shit", .{400, -100}, asset_manager.small_font_size, WHITE);
     push_render_layer(draw_frame, 0);
 }
 
@@ -772,6 +764,7 @@ sprite_tree_00        : *Atlas_Sprite;
 sprite_stone_chunk    : *Atlas_Sprite;
 sprite_coal_chunk     : *Atlas_Sprite;
 sprite_wood_chunk     : *Atlas_Sprite;
+sprite_outline        : *Atlas_Sprite;
 
 sprite_WFC_input      : *Atlas_Sprite;
 
@@ -782,6 +775,7 @@ WHITE :: (Vector4).{1, 1, 1, 1};
 RED   :: (Vector4).{1, 0, 0, 1};
 GREEN :: (Vector4).{0, 1, 0, 1};
 BLUE  :: (Vector4).{0, 0, 1, 1};
+BLACK :: (Vector4).{0, 0, 0, 1};
 
 LIGHT_GRAY :: (Vector4).{0.8, 0.8, 0.8, 1.0};
 
