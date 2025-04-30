@@ -183,7 +183,7 @@ reset_arena :: (arena: *Memory_Arena)
     while arena.block_count > 0
     {
         free_last_block(arena);
-        log("[INFO]: [reset_arena]: Block freed...\n");
+        //log("[INFO]: [reset_arena]: Block freed...\n");
     }
     arena.used          = 0;
     arena.scratch_count = 0;

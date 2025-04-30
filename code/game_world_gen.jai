@@ -432,8 +432,7 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
         }
 
         // picks cell from list
-        random_seed(*context.random_state, rdtsc());
-        index_to_pick := cast(u32)random_get_within_range(*context.random_state, 0, cast(float32)(cell_count - 1));
+        index_to_pick := cast(u32)random_get_within_range(0, cast(float32)(cell_count - 1));
 
         // collapse the cell
         cell := to_collapse[index_to_pick];
@@ -465,7 +464,7 @@ WFC_generate_AC1 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
             total_weight += chunk_modules[cell_modules[0]].weight;
         }
 
-        collapsed_value   := random_get_within_range(*context.random_state, 0.0, total_weight);
+        collapsed_value   := random_get_within_range(0.0, total_weight);
         cumulative_weight : float32;
         selected_module   : u32;
         for index: 0..cell_module_counter - 1
@@ -715,8 +714,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
         }
 
         // picks cell from list
-        random_seed(*context.random_state, rdtsc());
-        index_to_pick := cast(u32)random_get_within_range(*context.random_state, 0, cast(float32)(cell_count - 1));
+        index_to_pick := cast(u32)random_get_within_range(0, cast(float32)(cell_count - 1));
 
         // collapse the cell
         cell := to_collapse[index_to_pick];
@@ -748,7 +746,7 @@ WFC_generate_AC3 :: (arena: *Memory_Arena, gen_chunk: *WFC_Gen_Chunk) -> bool
             total_weight += gen_chunk.chunk_modules[cell_modules[0]].weight;
         }
 
-        collapsed_value   := random_get_within_range(*context.random_state, 0.0, total_weight);
+        collapsed_value   := random_get_within_range(0.0, total_weight);
         cumulative_weight : float32;
         selected_module   : u32;
         for index: 0..cell_module_counter - 1
@@ -1150,8 +1148,8 @@ round_to_tile_pos :: inline (position: Vector2) -> Vector2
 
 get_random_vec2 :: (minimum: Vector2, maximum: Vector2) -> Vector2
 {
-    return cast(Vector2).{random_get_within_range(*context.random_state, minimum.x, maximum.x),
-                          random_get_within_range(*context.random_state, minimum.y, maximum.y)};
+    return cast(Vector2).{random_get_within_range(minimum.x, maximum.x),
+                          random_get_within_range(minimum.y, maximum.y)};
 }
 
 is_room_overlapping :: (A: *Generation_Room, B: *Generation_Room) -> bool
@@ -1165,9 +1163,9 @@ get_random_within_radius :: (radius: float32) -> Vector2
     result: Vector2 = ---;
     
     TAU      := 2 * PI;
-    theta    := TAU * random_get_zero_to_one(*context.random_state);
+    theta    := TAU * random_get_zero_to_one();
 
-    uniform  := random_get_zero_to_one(*context.random_state);
+    uniform  := random_get_zero_to_one();
     u_radius := radius * sqrt(uniform);
 
     result.x  = u_radius * cos(theta);
@@ -1181,10 +1179,10 @@ get_random_within_ellipse :: (elipse_width: float32, elipse_height: float32) -> 
     result: Vector2 = ---;
     
     TAU      := 2.0 * PI;
-    theta    := TAU * random_get_zero_to_one(*context.random_state);
+    theta    := TAU * random_get_zero_to_one();
 
-    uniform  := random_get_zero_to_one(*context.random_state);
-    u_radius := sqrt(uniform);
+    uniform  := random_get_zero_to_one();
+    u_radius := ifx uniform > 1 then 2 - uniform else uniform;
 
     result.x  = (elipse_width  * u_radius * cos(theta));
     result.y  = (elipse_height * u_radius * sin(theta));
@@ -1192,34 +1190,61 @@ get_random_within_ellipse :: (elipse_width: float32, elipse_height: float32) -> 
     return result;
 }
 
-
 Generation_Room :: struct
 {
+    id           : u64;
+    
     position     : Vector2;
     size         : Vector2;
     velocity     : Vector2;
+
+    is_main_room : bool;
 };
+
+reset_generation :: ()
+{
+    for *room: generation_rooms
+    {
+        room.* = cast(Generation_Room).{};
+    }
+
+    for *point: super_triangle.points
+    {
+        point.* = .{0, 0};
+    }
+}
 
 init_generation :: ()
 {
-    radius     := 25.0;
-    room_count := 150;
-    max_room_x : float32 = 30;
-    max_room_y : float32 = 30;
+    radius     := 5.0;
+    added       = false;
 
-    min_room_x : float32 = 5;
-    min_room_y : float32 = 5;
+    // max_room_x : float32 = 35.0 * v2_cast(tile_size).x;
+    // max_room_y : float32 = 40.0 * v2_cast(tile_size).x;
+
+    // min_room_x : float32 = 5.0 * v2_cast(tile_size).y;
+    // min_room_y : float32 = 5.0 * v2_cast(tile_size).y;
+
+    max_room_x : float32 = 35.0;
+    max_room_y : float32 = 40.0;
+
+    min_room_x : float32 = 5.0;
+    min_room_y : float32 = 5.0;
 
     for room_index: 0..room_count - 1
     {
         room := *generation_rooms[room_index];
-        
         //room_position := round_to_tile_pos(get_random_within_radius(radius));
-        room_position := round_to_tile_pos(get_random_within_ellipse(100, 30));
-        room_size     := get_random_vec2(.{min_room_x, min_room_y}, .{max_room_x, max_room_y});
+        //room_position := round_to_tile_pos(get_random_within_ellipse(150.0 * tile_size.x, 200.0 * tile_size.y));
+        room_position := round_to_tile_pos(get_random_within_ellipse(150.0, 200.0));
+        // 150 200
+
+        // TODO(Sleepster): Do we want to try a normal random distribution for better rooms? 
+        room_size     := v2_floor(get_random_v2_normal_in_range(.{min_room_x, min_room_y}, .{max_room_x, max_room_y}));
 
         room.position = room_position;
         room.size     = room_size;
+        room.id       = xx room_index;
     }
 }
 
@@ -1227,7 +1252,7 @@ update_generation :: (draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
 {
     finished: bool = true;
     
-    repulsion_strength := 0.1;
+    repulsion_strength := 1.0;
     for *A: generation_rooms
     {
         disperse_vector: Vector2;
@@ -1246,10 +1271,317 @@ update_generation :: (draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
         }
 
         A.position += disperse_vector;
-        draw_texture(draw_frame, v2_floor(A.position), iv2_cast(A.size), sprite_outline, WHITE);
     }
 
     return finished;
+}
+
+Delaunay_Triangle_Edge :: struct
+{
+    first_point  : Vector2;
+    second_point : Vector2;
+};
+
+Delaunay_Triangle :: struct
+{
+    is_valid : bool = true;
+    
+    points   : [3]Vector2;
+    edges    : [3]Delaunay_Triangle_Edge;
+};
+
+is_point_within_circumcircle :: (point: Vector2, triangle: *Delaunay_Triangle) -> bool
+{
+    result: bool = false;
+    A := triangle.points[0];
+    B := triangle.points[1];
+    C := triangle.points[2];
+
+    denominator := 2.0 * (A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y));
+    if denominator == 0.0 {
+        return result; // NOTE(Sleepster): No circumcircle exists, so point can't be inside
+    }
+
+    // NOTE(Sleepster): Compute circumcenter coordinates (Ox, Oy)
+    Ox := ((A.x*A.x + A.y*A.y) * (B.y - C.y) + 
+           (B.x*B.x + B.y*B.y) * (C.y - A.y) + 
+           (C.x*C.x + C.y*C.y) * (A.y - B.y)) / denominator;
+
+    Oy := ((A.x*A.x + A.y*A.y) * (C.x - B.x) + 
+           (B.x*B.x + B.y*B.y) * (A.x - C.x) + 
+           (C.x*C.x + C.y*C.y) * (B.x - A.x)) / denominator;
+
+    // NOTE(Sleepster): Compute radius (distance from circumcenter to vertex A)
+    r_squared    := (A.x - Ox) * (A.x - Ox) + (A.y - Oy) * (A.y - Oy);
+    dist_squared := (point.x - Ox) * (point.x - Ox) + (point.y - Oy) * (point.y - Oy);
+
+    result = dist_squared < r_squared;
+    return result;
+}
+
+is_edge_shared :: (edge: Delaunay_Triangle_Edge, working_triangle: *Delaunay_Triangle, triangle_set: *[..]*Delaunay_Triangle) -> bool
+{
+    result: bool;
+    for triangle: triangle_set.*
+        {
+            if triangle == working_triangle continue;
+
+            for new_edge: triangle.edges
+            {
+                if(new_edge.first_point == edge.first_point && new_edge.second_point == edge.second_point) ||
+                    (new_edge.first_point == edge.second_point && new_edge.second_point == edge.first_point)
+                {
+                    result = true;
+                    break;
+                }
+            }
+            if result break;
+        }
+    
+    return result;
+}
+
+contains_point_from_super_triangle :: (triangle: Delaunay_Triangle, super_triangle: Delaunay_Triangle) -> bool
+{
+    result: bool;
+    for point: triangle.points
+    {
+        for super_point: super_triangle.points
+        {
+            if point == super_point
+            {
+                result = true;
+                break;
+            }
+        }
+        if result break;
+    }
+
+    return result;
+}
+
+// NOTE(Sleepster): is_valid is initialized to true 
+world_gen_triangulate :: ()
+{
+    // insert the point
+    for point_index: 0..point_list.count - 1
+    {
+        // TODO(Sleepster): I'm lazy 
+        violations: [..]*Delaunay_Triangle;
+        defer free(violations.data);
+
+        // find the triangles the insertion violates the Delaunay Optimal of
+        point := point_list[point_index];
+        for triangle_index: 0..triangulations.count - 1
+        {
+            triangle := *triangulations[triangle_index];
+            if triangle
+            {
+                if is_point_within_circumcircle(point, triangle)
+                {
+                    array_add(*violations, triangle);
+                }
+            }
+        }
+
+        // TODO(Sleepster): again, lazy 
+        polygonal_hole: [..]Delaunay_Triangle_Edge;
+        defer free(polygonal_hole.data);
+
+        // find the edges of the violated triangles that are not shared by any other triangles
+        for triangle_index: 0..violations.count - 1
+        {
+            working_triangle := violations[triangle_index];
+            if working_triangle
+            {
+                for edge: working_triangle.edges
+                {
+                    if !is_edge_shared(edge, working_triangle, *violations)
+                    {
+                        // add the edge to the new polygonal hole
+                        array_add(*polygonal_hole, edge);
+                    }
+                }
+            }
+        }
+
+        // mark for removal
+        for triangle: violations
+        {
+            if triangle
+            {
+                triangle.is_valid = false;
+            }
+        }
+
+        // remove the old triangle 
+        for triangle: triangulations
+        {
+            if !triangle.is_valid
+            {
+                remove triangle; // removes from the array
+            }
+        }
+
+        // add the new triangle
+        for edge: polygonal_hole
+        {
+            new_triangle: Delaunay_Triangle;
+
+            new_triangle.points[0] = point;
+            new_triangle.points[1] = edge.first_point;
+            new_triangle.points[2] = edge.second_point;
+
+            new_triangle.edges[0] = .{edge.first_point, edge.second_point};
+            new_triangle.edges[1] = .{edge.second_point, point};
+            new_triangle.edges[2] = .{point, edge.first_point};
+
+            new_triangle.is_valid = true;
+            array_add(*triangulations, new_triangle);
+        }
+    }
+
+    // remove the vertices associated with the super triangle
+    new_triangulations: [..]Delaunay_Triangle;
+    for triangle: triangulations
+    {
+        if !contains_point_from_super_triangle(triangle, super_triangle)
+        {
+            array_add(*new_triangulations, triangle);
+        }
+    }
+
+    free(triangulations.data);
+    triangulations.count = 0;
+    triangulations.data  = new_triangulations.data;
+    triangulations.count = new_triangulations.count;
+}
+
+process_generation :: (draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
+{
+    finished := update_generation(draw_frame, time);
+    if finished
+    {
+        main_room_counter = 0;
+
+        // NOTE(Sleepster): Calculate the mean room size 
+        total_width: float32;
+        total_height: float32;
+        for *room: generation_rooms
+        {
+            room.position = v2_floor(room.position);
+            
+            total_width  += room.size.x;
+            total_height += room.size.y;
+        }
+
+        mean_room_width  = total_width  / room_count;
+        mean_room_height = total_height / room_count;
+
+        // NOTE(Sleepster): Which rooms are main rooms?
+        for *room: generation_rooms
+        {
+            if room.size.x > (mean_room_width * 1.25) && room.size.y > (mean_room_height * 1.25)
+            {
+                room.is_main_room = true;
+                main_room_counter += 1;
+            }
+        }
+
+        // NOTE(Sleepster): Build the point list of the delaunay triangulation 
+        inserted: u32;
+        point_list = push_array(*context.garbage_arena, Vector2, main_room_counter);
+        for *room: generation_rooms
+        {
+            if room.is_main_room
+            {
+                point_list[inserted] = .{room.position.x + (room.size.x * 0.5), room.position.y + (room.size.y * 0.5)};
+                inserted += 1;
+            }
+        }
+
+        most_left_x  : float32;
+        most_right_x : float32;
+        highest_y    : float32;
+        lowest_y     : float32;
+        for *room: generation_rooms
+        {
+            most_left_x  = min(most_left_x,  room.position.x);
+            most_right_x = max(most_right_x, room.position.x);
+            lowest_y     = min(lowest_y,     room.position.y);
+            highest_y    = max(highest_y,    room.position.y);
+        }
+
+        padding_x := most_right_x - most_left_x;
+        padding_y := highest_y    - lowest_y;
+        delta     := max(padding_x, padding_y) * 100;
+
+        super_triangle.points[0]  = .{most_left_x   - delta,              lowest_y  - delta};
+        super_triangle.points[1]  = .{most_right_x  + delta,              lowest_y  - delta};
+        super_triangle.points[2]  = .{(most_right_x + most_left_x), highest_y + delta};
+
+        super_triangle.edges[0] = cast(Delaunay_Triangle_Edge).{super_triangle.points[0], super_triangle.points[1]};
+        super_triangle.edges[1] = cast(Delaunay_Triangle_Edge).{super_triangle.points[1], super_triangle.points[2]};
+        super_triangle.edges[2] = cast(Delaunay_Triangle_Edge).{super_triangle.points[2], super_triangle.points[0]};
+
+        // TODO(Sleepster): This is just here for debug, I want to see the algorithm work in real time. 
+        if !added
+        {
+            for *triangle: triangulations
+            {
+                if triangle
+                {
+                    remove triangle;
+                }
+            }
+            
+            array_add(*triangulations, super_triangle);
+            world_gen_triangulate();
+
+            added = true;
+        }
+
+    }
+
+    return finished;
+}
+
+draw_generation :: (draw_frame: *Draw_Frame_Data)
+{
+    for *point: super_triangle.points
+    {
+        draw_texture(draw_frame, point, .{5, 5}, sprite_outline, BLUE);
+    }
+
+    for *triangle: triangulations
+    {
+        for edge: triangle.edges
+        {
+            // if !first
+            // {
+            //     draw_line(draw_frame, edge.first_point, edge.second_point, 4, BLUE);
+            //     first = true;
+            // }
+            draw_texture(draw_frame, v2_floor(edge.first_point) - .{1, 1}, .{5, 5}, sprite_outline, GREEN);
+            draw_texture(draw_frame, v2_floor(edge.second_point) - .{1, 1}, .{3, 3}, sprite_outline, BLUE);
+        }
+    }
+
+    for *A: generation_rooms
+    {
+        color: Vector4;
+        if A.is_main_room
+        {
+            color = RED;
+            //draw_texture(draw_frame, v2_floor(A.position + (A.size * 0.5)) - .{1, 1}, .{1, 1}, sprite_outline, GREEN);
+        }
+        else
+        {
+            color = WHITE;
+        }
+        
+        draw_texture(draw_frame, v2_floor(A.position), iv2_cast(A.size), sprite_outline, color);
+    }
 }
 
 #scope_file
@@ -1258,3 +1590,17 @@ generation_rooms: [250]Generation_Room;
 
 update_radius      := 20.0;
 epsilon            := 0.1;
+
+room_count := 150;
+
+mean_room_width : float32;
+mean_room_height: float32;
+
+point_list: []Vector2;
+main_room_counter: u32;
+
+// TODO(Sleepster): I'm Lazy... 
+super_triangle: Delaunay_Triangle; 
+triangulations: [..]Delaunay_Triangle;
+
+#no_reset added: bool;

@@ -125,10 +125,8 @@ draw_quad_projected :: (draw_frame : *Draw_Frame_Data, quad : *Render_Quad, worl
         null_quad : Render_Quad;
         return *null_quad;
     }
+
     add_quad_to_render_layer(draw_frame, quad);
-    
-    // TODO(Sleepster): do we want this? 
-    // else add_texture_to_bound_list(draw_frame, quad.required_texture_id);
     
     render_quad := *draw_frame.primary_quad_buffer[draw_frame.draw_frame_quad_counter];
     draw_frame.draw_frame_quad_counter += 1;
@@ -298,3 +296,67 @@ set_clear_color :: inline (draw_frame: *Draw_Frame_Data, clear_color: Vector4)
 {
     draw_frame.clear_color = clear_color;
 }
+
+draw_line :: (draw_frame: *Draw_Frame_Data, start: Vector2, end: Vector2, thickness: float32, color: Vector4)
+{
+    render_size: Vector2;
+    render_size.x = end.x - start.x;
+    render_size.y = end.y - start.y;
+
+    draw_texture(draw_frame, start, iv2_cast(render_size), sprite_textureless, color);
+}
+
+// TODO(Sleepster): support this 
+/*
+draw_line :: (draw_frame: *Draw_Frame_Data, start: Vector2, end: Vector2, thickness: float32, color: Vector4)
+{
+    direction   := end - start;
+    line_length := sqrt(square(direction.x) + square(direction.y));
+    rotation    := (atan2(direction.y, direction.x));
+
+    if line_length <= 0 return;
+
+    render_size: Vector2;
+    render_size.x = line_length;
+    render_size.y = thickness;
+
+    adjusted_position: Vector2;
+    adjusted_position.x = start.x;
+    adjusted_position.y = start.y - thickness;
+
+    quad := create_draw_quad(draw_frame, adjusted_position, iv2_cast(render_size), null_matrix, 
+                             sprite_outline.atlas_texture.texID, sprite_outline.atlas_position,
+                             sprite_outline.atlas_size, rotation, color);
+
+    xform         := mat4_identity();
+    rotation_m    := mat4_rotate(rotation, .{0, 0, 1});
+    translation_m := mat4_make_translation(.{adjusted_position.x, adjusted_position.y, 0});
+
+    xform  = rotation_m * translation_m;
+
+    world_to_clip := Matrix4_Identity;
+    world_to_clip  = multiply(world_to_clip, draw_frame.active_projection_matrix);
+    world_to_clip  = multiply(world_to_clip, draw_frame.active_view_matrix);
+    world_to_clip  = multiply(world_to_clip, xform);
+
+    // Draw the projected quad
+    result := draw_quad_projected(draw_frame, *quad, world_to_clip);
+
+    print("WORLD TO CLIP MATRIX: \n");
+    print_matrix(world_to_clip);
+
+    print("ACTIVE PROJECTION MATRIX: \n");
+    print_matrix(draw_frame.active_projection_matrix);
+
+    print("VERTEX VECTOR: %\n", result.bottom_left.vPosition);
+    print("VERTEX VECTOR: %\n", result.bottom_right.vPosition);
+    print("VERTEX VECTOR: %\n", result.top_left.vPosition);
+    print("VERTEX VECTOR: %\n", result.top_right.vPosition);
+
+    result.bottom_left.vPosition.w  = 1.0;
+    result.bottom_right.vPosition.w = 1.0;
+    result.top_left.vPosition.w     = 1.0;
+    result.top_right.vPosition.w    = 1.0;
+
+    return;
+} */

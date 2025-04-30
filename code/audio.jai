@@ -262,11 +262,11 @@ mixer_handle_all_playing_sounds :: (sound_manager: *Sound_Manager, time: Time_Da
     {
         for 0..manager_buffer_info.samples_to_output - 1
         {
-            defer dest_00 += 1;
-            defer dest_01 += 1;
-            
-                <<dest_00 = 0;
-                <<dest_01 = 0;
+            dest_00.* = 0;
+            dest_01.* = 0;
+
+            dest_00 += 1;
+            dest_01 += 1;
         }
 
         playing_sound_ptr: **Playing_Sound = *sound_manager.first_playing_sound;
@@ -300,8 +300,8 @@ mixer_handle_all_playing_sounds :: (sound_manager: *Sound_Manager, time: Time_Da
 
                         left_sample_value  : float32 = cast(float32)(sound_asset_data.sample_data[sample_offset * 2])      * current_sound.current_volume.x;
                         right_sample_value : float32 = cast(float32)(sound_asset_data.sample_data[(sample_offset * 2) + 1] * current_sound.current_volume.y);
-                            <<dest_00 += left_sample_value;
-                            <<dest_01 += right_sample_value;
+                        dest_00.* += left_sample_value;
+                        dest_01.* += right_sample_value;
 
                         sample_index += current_sound.pitch;
 

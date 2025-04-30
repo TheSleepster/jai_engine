@@ -103,6 +103,27 @@ v2_floor :: inline (A: Vector2) -> Vector2
     return result;
 }
 
+v2_expand :: inline (A: Vector2, B: float32) -> Vector3
+{
+    result: Vector3;
+    result.x = A.x;
+    result.y = A.y;
+    result.z = B;
+
+    return result;
+}
+
+v2_expand :: inline (A: Vector2, B: float32, C: float32) -> Vector4
+{
+    result: Vector4;
+    result.x = A.x;
+    result.y = A.y;
+    result.z = B;
+    result.w = C;
+
+    return result;
+}
+
 ////////////////////
 // VECTOR OPERATORS
 ////////////////////
@@ -145,15 +166,9 @@ iv2_cast :: inline (vector: Vector2) -> iVector2
 ////////////////
 // MATRIX STUFF
 ////////////////
-mat4_identity :: (diagonal: float32) -> Matrix4
+mat4_identity :: () -> Matrix4
 {
-    matrix: Matrix4;
-    matrix._11 = diagonal;
-    matrix._22 = diagonal;
-    matrix._33 = diagonal;
-    matrix._44 = diagonal;
-
-    return matrix;
+    return Matrix4_Identity;
 }
 
 mat4_scale :: (m: Matrix4, scale: Vector3) -> Matrix4
@@ -163,20 +178,22 @@ mat4_scale :: (m: Matrix4, scale: Vector3) -> Matrix4
 
 mat4_make_scale :: (scale: Vector3) -> Matrix4
 {
-    result := mat4_identity(1.0);
+    result := mat4_identity();
     result._11 = scale.x;
     result._22 = scale.y;
     result._33 = scale.z;
+    result._44 = 1.0;
 
     return result;
 }
 
 mat4_make_translation :: (translation: Vector3) -> Matrix4
 {
-    result := mat4_identity(1.0);
+    result := mat4_identity();
     result._41 = translation.x;
     result._42 = translation.y;
     result._43 = translation.z;
+    result._44 = 1.0;
 
     return result;
 }
@@ -184,6 +201,30 @@ mat4_make_translation :: (translation: Vector3) -> Matrix4
 mat4_translate :: (matrix: Matrix4, translation: Vector3) -> Matrix4
 {
     return multiply(matrix, mat4_make_translation(translation));
+}
+
+mat4_rotate :: (rotation: float32, axis: Vector3) -> Matrix4
+{
+    result: Matrix4 = mat4_identity();
+    axis_norm := normalize(axis);
+    
+    sin_theta := sin(rotation);
+    cos_theta := cos(rotation);
+    cos_value := 1.0 - cos_theta;
+
+    result._11 = (axis.x * axis.x * cos_value) + cos_theta;
+    result._21 = (axis.x * axis.y * cos_value) + (axis.z * sin_theta);
+    result._31 = (axis.x * axis.z * cos_value) - (axis.y * sin_theta);
+    
+    result._12 = (axis.y * axis.x * cos_value) - (axis.z * sin_theta);
+    result._22 = (axis.y * axis.y * cos_value) + cos_theta;
+    result._32 = (axis.y * axis.z * cos_value) + (axis.x * sin_theta);
+    
+    result._13 = (axis.z * axis.x * cos_value) + (axis.y * sin_theta);
+    result._23 = (axis.z * axis.y * cos_value) - (axis.x * sin_theta);
+    result._33 = (axis.z * axis.z * cos_value) + cos_theta;
+
+    return result;
 }
 
 print_matrix :: (m: Matrix4)
@@ -231,3 +272,67 @@ sin_breathe :: (time: float32, modifier: float32) -> float32
 {
     return(sin((time * PI) / modifier));
 }
+
+///////////////////////////////
+// NORMAL RANDOM DISTRIBUTION
+///////////////////////////////
+
+get_random_normal :: () -> float64
+{
+    if has_cached
+    {
+        has_cached = false;
+        return cached_value;
+    }
+    
+    u1 := random_get_zero_to_one_new();
+    u2 := random_get_zero_to_one_new();
+
+    if u1 <= 0 then u1 = random_get_zero_to_one_new();
+
+    radius := sqrt(-2.0 * log(u1));
+    angle  := (2 * PI) * u2;
+
+    z1 := radius * cos(angle);
+    z2 := radius * sin(angle);
+
+    has_cached   = true;
+    cached_value = z2;
+
+    return z1;
+}
+
+// 0.5, / 4.0
+
+get_random_normal_range :: (min: float32, max: float32) -> float32
+{
+    mean := min + 0.5 * (min + max); 
+    sigma := (max - min) / 4.0;
+    
+    z := get_random_normal();  
+    x := mean + sigma * z;     
+    
+    if x < min then x = min;
+    if x > max then x = max;
+    
+    return cast(float32)x;
+}
+
+get_random_v2_normal_in_range :: (min: Vector2, max: Vector2) -> Vector2
+{
+    width        := get_random_normal_range(min.x, max.x);
+    aspect_ratio := random_get_within_range(0.5, 2.0);
+    height       := width * aspect_ratio;
+
+    if height < min.y then height = min.y;
+    if height > max.y then height = max.y;
+
+    return .{width, height};
+}
+
+#scope_file
+has_cached: bool;
+cached_value: float64;
+
+RANDRANGE : u32 : 1 << 24;  // Not using all the bits for stuff like float divides, because we start losing accuracy due to the max representable integer. Maybe could be smarter than this. Must be a power of two for MASK to work. The highest exactly-representable integer in float32 is 2**24.
+MASK :: RANDRANGE - 1;

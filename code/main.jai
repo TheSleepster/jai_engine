@@ -20,7 +20,7 @@
     platform_allocate_memory :: inline (size: u64) -> *void
     {
         data := P.mmap(null, size, P.PROT_READ|P.PROT_WRITE, P.MAP_PRIVATE|P.MAP_ANONYMOUS, -1, 0);
-        log("[INFO]: mmap called with a size of: %mb\n", cast(float32)(size / 1048576.0));
+        //log("[INFO]: mmap called with a size of: %mb\n", cast(float32)(size / 1048576.0));
         return data;
     }
 
@@ -72,7 +72,7 @@
 
 /*
 TODO:
-  - [ ] Rewrite the renderer and shaders to support texelFetch.
+  - [ ] Rewrite the renderer and shaders to support both texelFetch and texture (support both AA and non-AA textures).
   - [ ] Rendering options for the renderer
   - [ ] Multithreading API
   - [ ] Revise the asset manager
@@ -81,15 +81,19 @@ TODO:
   - [ ] Fix the dynamic font loader so that it actually works as intended and doesn't crash when we run out of atlas space
   - [ ] Hotreloading of the game file??? 
   - [ ] Improve hot reloading of the assets???
-  - [ ] Break shaders into hot reloadable systems
-  - [ ] Create "win32_engine.jai" and "win32_linux.jai"
+  - [ ] Break shaders into hot reloadable systems?
+  - [ ] Create "win32_engine.jai" and "linux_engine.jai" for platform dependant systems (networking, memory allocation)
+  - [ ] Asset file format on par with that the .WAD file format used in DOOM
+  - [ ] Change how textures are thrown into the atlas 
+  - [ ] Fix the sound mixer to not explode and die when the framerate drops
+  - [ ] Fix game_action_* api so that you can do things like so: game_action_is_pressed(game_state.input_manager, .INTERACT);
+  - [ ] Allow the renderer to support pivots (left, center, right, top left, top right)
+  - [ ] Make the renderer follow what the GAME demands, not what the renderer independantly decides to do (clear the screen, draw now, etc.)
+  - [ ] Make the drawing API ACTUALLY allow rotations. Right now it's like a "pass the rotation but we won't do anything with it lol" thing
+  - [ ] Allow the drawing API to draw simple lines. Idk why this HAS to be here.
   - [ ] Allow textures to be evicted from both memory and the texture atlas. 
         We can do this by adding a bitmap to the atlas and storing in the texture itself the beginning and end 
         pointers into the texture atlas' data buffer.
-  - [ ] Change how textures are thrown into the atlas 
-  - [ ] Fix the sound mixer to not explode and die when the framerate drops
-  - [ ] Fix game_action_* api so that you can do things like so: game_action_is_pressed(game_state.input_manager, .INTERACT
-  - [ ] Allow the renderer to support pivots (left, center, right, top left, top right)
 
 BACKBURNER:
   - [ ] Platform indepedant networking API, jai's module isn't too great me thinks. 
@@ -176,6 +180,7 @@ reset_frame_data :: (transient_state: *Transient_State, draw_frame: *Draw_Frame_
         value = 0;
     }
 
+    reset_arena(*context.garbage_arena);
     reset_temporary_storage();
 }
 
@@ -210,7 +215,7 @@ main :: ()
         if window_data.window != null
         {
             input_manager.keyboard_input.SDL_keys = SDL_GetKeyboardState(null);
-            random_seed(*context.random_state, rdtsc());
+            random_seed(rdtsc());
             // ARENA INIT
             {
                 // POOL INIT
@@ -398,12 +403,13 @@ main :: ()
     }
 }
 
+#add_context garbage_arena: Memory_Arena;
 
 build :: ()
 {
     #import "Compiler";
     #import "Basic";
-    
+
     set_build_options_dc(.{do_output=false});
 
     workspace := compiler_create_workspace();

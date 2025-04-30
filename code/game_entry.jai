@@ -170,7 +170,9 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
     // NOTE(Sleepster): CREATE MATRICES
     //                                                  180                                 120
-    size_data := (Vector3).{window_data.window_size.x / 720.0, window_data.window_size.y / 540.0, 1.0};
+    //size_data := (Vector3).{window_data.window_size.x / (3840.0 * 4), window_data.window_size.y / (2880.0 * 4), 1.0};
+    size_data := (Vector3).{window_data.window_size.x / 960.0, window_data.window_size.y / 720.0, 1.0};
+    //size_data := (Vector3).{window_data.window_size.x / 180, window_data.window_size.y / 120, 1.0};
     v2_approach(*game_camera.current_position, game_camera.target_position, game_camera.travel_rate, time.delta_time);
 
     scale_matrix       := mat4_make_scale(size_data);
@@ -345,8 +347,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         filepath :: "../data/res/textures/DEBUG/OLM_test_input2.png";
         test_modules := WFC_analyze(*game_state.game_arena, asset_manager, filepath);
 
-        //generation_size := (iVector2).{30, 30};
-        //generate_enclosed_room(game_state, test_modules, generation_size);
+        // generation_size := (iVector2).{30, 30};
+        // generate_enclosed_room(game_state, test_modules, generation_size);
 
         init_generation();
         
@@ -422,7 +424,14 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
     WFC_render(*new_chunk, draw_frame);
 
-    update_generation(draw_frame, time);
+    finished := process_generation(draw_frame, time);
+    draw_generation(draw_frame);
+
+    if is_key_pressed(input_manager, xx SDL_SCANCODE_PERIOD)
+    {
+        reset_generation();
+        init_generation();
+    }
 
     // NOTE(Sleepster): UPDATE PLAYER
     world_frame.player = get_player(game_state.entity_manager);
@@ -678,8 +687,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
                     {
                         for 0..drop.amount_to_drop
                         {
-                            random_drop_position := (Vector2).{random_get_within_range(*context.random_state, -entity.max_drop_radius, entity.max_drop_radius),
-                                                               random_get_within_range(*context.random_state, -entity.max_drop_radius, entity.max_drop_radius)};
+                            random_drop_position := (Vector2).{random_get_within_range(-entity.max_drop_radius, entity.max_drop_radius),
+                                                               random_get_within_range(-entity.max_drop_radius, entity.max_drop_radius)};
 
                             new_entity := spawn_item(game_state, drop.dropped_item);
                             new_entity.position = entity.position + random_drop_position;
