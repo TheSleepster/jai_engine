@@ -2,6 +2,7 @@
 TODO:
   - [ ] Create a higher level structure for storing these generated rooms and their layout in the world
   - [ ] Create a "generator" that can control HOW the rooms are placed and what their sizes should be
+  - [ ] Stop using globals and dynamic arrays in this file.
   - [ ] Create a method of connecting the rooms together and cull the unconnected rooms
   - [ ] Test the idea of layered room generation. (First generate the floor, then the walls, etc.) 
   - [ ] Add a field called "tile_types" to the WFC_Modules. 
@@ -1280,6 +1281,8 @@ Delaunay_Triangle_Edge :: struct
 {
     first_point  : Vector2;
     second_point : Vector2;
+
+    edge_weight  : float32;
 };
 
 Delaunay_Triangle :: struct
@@ -1298,8 +1301,10 @@ is_point_within_circumcircle :: (point: Vector2, triangle: *Delaunay_Triangle) -
     C := triangle.points[2];
 
     denominator := 2.0 * (A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y));
+
+    // NOTE(Sleepster): No circumcircle exists, so point can't be inside
     if denominator == 0.0 {
-        return result; // NOTE(Sleepster): No circumcircle exists, so point can't be inside
+        return result;
     }
 
     // NOTE(Sleepster): Compute circumcenter coordinates (Ox, Oy)
@@ -1328,8 +1333,8 @@ is_edge_shared :: (edge: Delaunay_Triangle_Edge, working_triangle: *Delaunay_Tri
 
             for new_edge: triangle.edges
             {
-                if(new_edge.first_point == edge.first_point && new_edge.second_point == edge.second_point) ||
-                    (new_edge.first_point == edge.second_point && new_edge.second_point == edge.first_point)
+                if(new_edge.first_point == edge.first_point  && new_edge.second_point == edge.second_point) ||
+                  (new_edge.first_point == edge.second_point && new_edge.second_point == edge.first_point)
                 {
                     result = true;
                     break;
@@ -1432,9 +1437,9 @@ world_gen_triangulate :: ()
             new_triangle.points[1] = edge.first_point;
             new_triangle.points[2] = edge.second_point;
 
-            new_triangle.edges[0] = .{edge.first_point, edge.second_point};
-            new_triangle.edges[1] = .{edge.second_point, point};
-            new_triangle.edges[2] = .{point, edge.first_point};
+            new_triangle.edges[0] = .{edge.first_point, edge.second_point, 0.0};
+            new_triangle.edges[1] = .{edge.second_point, point, 0.0};
+            new_triangle.edges[2] = .{point, edge.first_point, 0.0};
 
             new_triangle.is_valid = true;
             array_add(*triangulations, new_triangle);
@@ -1457,7 +1462,27 @@ world_gen_triangulate :: ()
     triangulations.count = new_triangulations.count;
 }
 
-process_generation :: (draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
+MST_union_set :: (union_find: []u32, first_index: u32, second_index: u32)
+{
+    root1 := MST_find(union_find, first_index);
+    root2 := MST_find(union_find, second_index);
+    if root1 != root2
+    {
+        union_find[root1] = root2;
+    }
+}
+
+MST_find :: (union_find: []u32, ID: u32) -> u32
+{
+    if union_find.data[ID] != ID
+    {
+        union_find.data[ID] = MST_find(union_find, union_find.data[ID]);
+    }
+
+    return union_find[ID];
+}
+
+process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
 {
     finished := update_generation(draw_frame, time);
     if finished
@@ -1520,9 +1545,9 @@ process_generation :: (draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
         super_triangle.points[1]  = .{most_right_x  + delta,              lowest_y  - delta};
         super_triangle.points[2]  = .{(most_right_x + most_left_x), highest_y + delta};
 
-        super_triangle.edges[0] = cast(Delaunay_Triangle_Edge).{super_triangle.points[0], super_triangle.points[1]};
-        super_triangle.edges[1] = cast(Delaunay_Triangle_Edge).{super_triangle.points[1], super_triangle.points[2]};
-        super_triangle.edges[2] = cast(Delaunay_Triangle_Edge).{super_triangle.points[2], super_triangle.points[0]};
+        super_triangle.edges[0] = cast(Delaunay_Triangle_Edge).{super_triangle.points[0], super_triangle.points[1], 0.0};
+        super_triangle.edges[1] = cast(Delaunay_Triangle_Edge).{super_triangle.points[1], super_triangle.points[2], 0.0};
+        super_triangle.edges[2] = cast(Delaunay_Triangle_Edge).{super_triangle.points[2], super_triangle.points[0], 0.0};
 
         // TODO(Sleepster): This is just here for debug, I want to see the algorithm work in real time. 
         if !added
@@ -1536,11 +1561,123 @@ process_generation :: (draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
             }
             
             array_add(*triangulations, super_triangle);
+            // TODO(Sleepster): return a triangle list 
             world_gen_triangulate();
+
+            // take all of the points in each of the edges, remove duplicates.
+            edges := push_array(*context.garbage_arena, Delaunay_Triangle_Edge, xx (triangulations.count * 3));
+            edges_inserted := 0;
+            for *triangle: triangulations
+            {
+                for edge: triangle.edges
+                {
+                    broken := false;
+                    for index: 0..edges_inserted - 1
+                    {
+                        array_edge := *edges[index];
+                        if(edge.first_point == array_edge.first_point  && edge.second_point == array_edge.second_point) ||
+                          (edge.first_point == array_edge.second_point && edge.second_point == array_edge.first_point)
+                        {
+                            broken = true;
+                            break;
+                        }
+                    }
+                    if !broken
+                    {
+                        edges[edges_inserted] = edge;
+                        edges_inserted += 1;
+                    }
+                }
+            }
+
+            // Calculate the weight by taking the length of each edge
+            for edge_index: 0..edges_inserted - 1
+            {
+                edge := *edges[edge_index];
+                edge.edge_weight = sqrt(square(edge.second_point.x - edge.first_point.x) +
+                                        square(edge.second_point.y - edge.first_point.y));
+            }
+
+            ////////////////////////
+            // KRUSKAL'S ALGORITHM
+            ////////////////////////
+            
+            // construct a list of shortest vectors.
+            sorted_edges := push_array(*context.garbage_arena, Delaunay_Triangle_Edge, xx(edges_inserted));
+            edge_MST      = push_array(arena, Delaunay_Triangle_Edge, xx(edges_inserted));
+
+            vertex_count: u32 = 0;
+            unique_vertices := push_array(*context.garbage_arena, *Vector2, xx(edges_inserted * 4));
+
+            // NOTE(Sleepster): This is a terrible way of doing this, first_point and second point should just be an array... TOO BAD! 
+            for edge_index: 0..edges_inserted - 1
+            {
+                edge := *edges[edge_index];
+
+                first_point_unique  := true;
+                second_point_unique := true;
+                for vertex_index: 0..vertex_count - 1
+                {
+                    vertex := unique_vertices[vertex_index];
+                    if vertex == *edge.first_point
+                    {
+                        first_point_unique = false;
+                    }
+                    else if vertex == *edge.second_point
+                    {
+                        second_point_unique = false;
+                    }
+
+                    if vertex_count == 0 break;
+                }
+                
+                if first_point_unique
+                {
+                    unique_vertices[vertex_count] = *edge.first_point;
+                    vertex_count += 1;
+                }
+                if second_point_unique
+                {
+                    unique_vertices[vertex_count] = *edge.second_point;
+                    vertex_count += 1;
+                }
+            }
+
+            memcpy(sorted_edges.data, edges.data, size_of(Delaunay_Triangle_Edge) * edges_inserted);
+            quick_sort(sorted_edges, (A, B) => compare(B.edge_weight, A.edge_weight));
+
+            union_find := push_array(*context.garbage_arena, u32, vertex_count);
+            for 0..vertex_count - 1
+            {
+                union_find[it] = it;
+            }
+
+            MST_index = 0;
+            for edge_index: 0..edges_inserted - 1
+            {
+                edge := *sorted_edges[edge_index];
+                first_index: u32;
+                second_index: u32;
+                for vertex_index: 0..vertex_count - 1
+                {
+                    if unique_vertices[vertex_index] == edge.first_point then  first_index  = vertex_index;
+                    if unique_vertices[vertex_index] == edge.second_point then second_index = vertex_index;
+                }
+
+                if MST_find(union_find, first_index) != MST_find(union_find, second_index)
+                {
+                    edge_MST[MST_index] = edge;
+                    MST_index += 1;
+
+                    MST_union_set(union_find, first_index, second_index);
+                }
+
+                // NOTE(Sleepster): overflow 
+                if MST_index == vertex_count - 1 break;
+            }
 
             added = true;
         }
-
     }
 
     return finished;
@@ -1562,9 +1699,19 @@ draw_generation :: (draw_frame: *Draw_Frame_Data)
             //     draw_line(draw_frame, edge.first_point, edge.second_point, 4, BLUE);
             //     first = true;
             // }
-            draw_texture(draw_frame, v2_floor(edge.first_point) - .{1, 1}, .{5, 5}, sprite_outline, GREEN);
-            draw_texture(draw_frame, v2_floor(edge.second_point) - .{1, 1}, .{3, 3}, sprite_outline, BLUE);
+            // draw_texture(draw_frame, v2_floor(edge.first_point) - .{1, 1}, .{5, 5}, sprite_outline, GREEN);
+            // draw_texture(draw_frame, v2_floor(edge.second_point) - .{1, 1}, .{3, 3}, sprite_outline, BLUE);
+
         }
+    }
+
+    for index: 0..MST_index - 1
+    {
+        if MST_index == 0 break;
+
+        edge := edge_MST[index];
+        draw_texture(draw_frame, v2_floor(edge.first_point) - .{1, 1}, .{5, 5}, sprite_outline, ORANGE);
+        draw_texture(draw_frame, v2_floor(edge.second_point) - .{1, 1}, .{3, 3}, sprite_outline, BLUE);
     }
 
     for *A: generation_rooms
@@ -1602,5 +1749,8 @@ main_room_counter: u32;
 // TODO(Sleepster): I'm Lazy... 
 super_triangle: Delaunay_Triangle; 
 triangulations: [..]Delaunay_Triangle;
+
+edge_MST      : []Delaunay_Triangle_Edge; 
+#no_reset MST_index: u32;
 
 #no_reset added: bool;

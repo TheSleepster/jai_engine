@@ -45,8 +45,8 @@ layout(location = 0) in vec4 vPosition;
 layout(location = 1) in vec4 vColor;
 layout(location = 2) in vec2 vUVData;
 
-out vec4 vOutColor;
-out vec2 vOutUVData;
+layout(location = 0) out vec4 vOutColor;
+layout(location = 1) out vec2 vOutUVData;
 
 void main()
 {

@@ -27,9 +27,14 @@ BIT :: inline (index: u32) -> u32 #expand
     return cast(u32)(1 << index);
 }
 
-compare_s32 :: (a: s32, b: s32) -> int
+compare :: (a: $T, b: T) -> int
 {
     return ifx a > b then -1 else 1; 
+}
+
+compare_backwards :: (a: $T, b: T) -> int
+{
+    return ifx a > b then 1 else -1; 
 }
 
 is_equals :: (a: float32, b: float32, threshhold: float32) -> bool

@@ -132,6 +132,7 @@ create_texture_from_data :: (texture: *Texture2D) -> bool
     return false;
 }
 
+// TODO(Sleepster): Why is this here? 
 radix_sort :: (primary_buffer      : *void,
                sorting_buffer      : *void,
                item_count          :  s32,
@@ -143,39 +144,39 @@ radix_sort :: (primary_buffer      : *void,
     bits_per_pass    : s32 : 8;
     number_of_passes : s32 = (bits_to_search + bits_per_pass - 1) / bits_per_pass;
 
-    half_range_of_value : s64 = cast(s64)((cast(u64)1) << (bits_to_search - 1));
+    half_range_of_value: s64 = cast(s64)((cast(u64)1) << (bits_to_search - 1));
 
     counter   : [radix_value]s64;
     digit_sum : [radix_value]s64;
 
-    for pass_index : 0..number_of_passes - 1
+    for pass_index: 0..number_of_passes - 1
     {
-        shifted_value : s32 = pass_index * bits_per_pass;
+        shifted_value: s32 = pass_index * bits_per_pass;
         memset(cast(*void)counter.data, 0, counter.count * size_of(s64));
-        for item_index : 0..item_count - 1
+        for item_index: 0..item_count - 1
         {
-            byte : *u8 = (cast(*u8)primary_buffer) + item_index * item_size;
+            byte: *u8 = (cast(*u8)primary_buffer) + item_index * item_size;
             value_to_sort := <<cast(*u64)(byte + offset_of_value);
             value_to_sort += cast(u64)half_range_of_value;
 
-            digit : u32 = cast(u32)((value_to_sort >> shifted_value) & (radix_value - 1));
+            digit: u32 = cast(u32)((value_to_sort >> shifted_value) & (radix_value - 1));
             counter[digit] += 1;
         }
 
         digit_sum[0] = 0;
-        for sum_index : 1..radix_value - 1
+        for sum_index: 1..radix_value - 1
         {
             digit_sum[sum_index] = digit_sum[sum_index - 1] + counter[sum_index - 1];
         }
 
-        for item_index : 0..item_count - 1
+        for item_index: 0..item_count - 1
         {
-            byte : *u8 = (cast(*u8)primary_buffer) + item_index * item_size;
+            byte: *u8 = (cast(*u8)primary_buffer) + item_index * item_size;
             
             value_to_sort := <<cast(*u64)(byte + offset_of_value);
             value_to_sort += cast(u64)half_range_of_value;
 
-            digit : u32 = cast(u32)((value_to_sort >> shifted_value) & (radix_value - 1));
+            digit: u32 = cast(u32)((value_to_sort >> shifted_value) & (radix_value - 1));
             
             memcpy((cast(*u8)sorting_buffer + digit_sum[digit] * item_size), byte, item_size);
             digit_sum[digit] += 1;

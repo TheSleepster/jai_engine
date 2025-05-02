@@ -424,12 +424,11 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
     WFC_render(*new_chunk, draw_frame);
 
-    finished := process_generation(draw_frame, time);
+    finished := process_generation(*game_state.game_arena, draw_frame, time);
     draw_generation(draw_frame);
 
     if is_key_pressed(input_manager, xx SDL_SCANCODE_PERIOD)
     {
-        reset_generation();
         init_generation();
     }
 
@@ -785,6 +784,8 @@ RED   :: (Vector4).{1, 0, 0, 1};
 GREEN :: (Vector4).{0, 1, 0, 1};
 BLUE  :: (Vector4).{0, 0, 1, 1};
 BLACK :: (Vector4).{0, 0, 0, 1};
+
+ORANGE :: #run hex_to_rgba(0xFFAD00FF);
 
 LIGHT_GRAY :: (Vector4).{0.8, 0.8, 0.8, 1.0};
 

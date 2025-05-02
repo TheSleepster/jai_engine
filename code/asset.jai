@@ -290,7 +290,7 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
 
     sorted_textures: [64]Texture2D;
     memcpy(sorted_textures.data, textures.data, size_of(Texture2D) * asset_manager.textures_to_insert);
-    quick_sort(sorted_textures, (x, y) => compare_s32(x.height, y.height));
+    quick_sort(sorted_textures, (x, y) => compare(x.height, y.height));
 
     x_position : s32 = 0;
     y_position : s32 = 0;
