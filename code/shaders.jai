@@ -87,9 +87,9 @@ layout(location = 1) in vec4 vColor;
 layout(location = 2) in vec2 vUVData;
 layout(location = 3) in uint vTexIndex;
 
-out vec4      vOutColor;
-out vec2      vOutUVData;
-out flat uint vOutTexIndex;
+layout(location = 0) out vec4      vOutColor;
+layout(location = 1) out vec2      vOutUVData;
+layout(location = 2) out flat uint vOutTexIndex;
 
 void main()
 {
@@ -106,7 +106,7 @@ layout(location = 0) in vec4 vOutColor;
 layout(location = 1) in vec2 vOutUVData;
 layout(location = 2) in flat uint vOutTexIndex;
 
-uniform sampler2D AtlasArray[32];
+uniform sampler2D AtlasArray[16];
 
 out vec4 vFragColor;
 void main()
