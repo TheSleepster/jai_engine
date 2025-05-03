@@ -1523,7 +1523,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
         {
             if room.size.x > (mean_room_width * 1.25) && room.size.y > (mean_room_height * 1.25)
             {
-                room.is_main_room = true;
+                room.is_main_room  = true;
                 main_room_counter += 1;
             }
         }
@@ -1547,14 +1547,14 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
         for *room: generation_rooms
         {
             most_left_x  = min(most_left_x,  room.position.x);
-            most_right_x = max(most_right_x, room.position.x);
+            most_right_x = max(most_right_x, room.position.x + room.size.x);
             lowest_y     = min(lowest_y,     room.position.y);
-            highest_y    = max(highest_y,    room.position.y);
+            highest_y    = max(highest_y,    room.position.y + room.size.y);
         }
 
         padding_x := most_right_x - most_left_x;
         padding_y := highest_y    - lowest_y;
-        delta     := max(padding_x, padding_y) * 100;
+        delta     := max(padding_x, padding_y) * 10;
 
         super_triangle.points[0]  = .{most_left_x   - delta,              lowest_y  - delta};
         super_triangle.points[1]  = .{most_right_x  + delta,              lowest_y  - delta};
@@ -1739,6 +1739,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             // any rooms that overlap with the hallways are added to the room list
             // create a tile grid and fill in the empty spaces
 
+            // TODO(Sleepster): Maybe we can make the segment count multiples of 1-3-5-7-etc 
             segment_count: u32 = 0;
             hallway_segments = push_array(arena, Line_Segment, xx (edge_MST.count * 6));
             for *MST_edge: edge_MST
@@ -1829,13 +1830,53 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             }
             hallway_segments.count = segment_count;
 
-            grid_width  : u32 = most_right_x - most_left_x;
-            grid_height : u32 = highest_y    - lowest_y;
+            // initiailize the final grid
+            grid_width  : u32 = cast(u32)ceil(most_right_x - most_left_x);
+            grid_height : u32 = cast(u32)ceil(highest_y    - lowest_y);
             dungeon_grid := push_array(arena, []u8, grid_width);
             for 0..grid_width - 1
             {
                 dungeon_grid[it] = push_array(arena, u8, grid_height);
             }
+
+            /* TODO(Sleepster): 
+                - figure out how to find out what rooms hallways intersect with 
+                - figure out how to insert the rooms in the grid with the hallways
+                - fill in the blanks between the rooms
+                - modify the Generation_Room definitions so the WFC algorithm has full rooms to work with 
+            */
+
+            // put the room/hallway data into the grid
+            for *room: generation_rooms
+            {
+                if room.is_main_room
+                {
+                    grid_x := cast(u32)floor(room.position.x - most_left_x);
+                    grid_y := cast(u32)floor(room.position.y - lowest_y);
+                    for delta_x: 0..cast(u32)room.size.x - 1
+                    {
+                        for delta_y: 0..cast(u32)room.size.y - 1
+                        {
+                            new_x := grid_x + delta_x;
+                            new_y := grid_y + delta_y;
+                            assert(new_x < grid_width);
+                            assert(new_y < grid_height);
+
+                            dungeon_grid[new_x][new_y] = 1;
+                        }
+                    }
+                }
+            }
+
+            for y: 0..grid_height - 1
+            {
+                for x: 0..grid_width - 1
+                {
+                    print("%", dungeon_grid[x][y]);
+                }
+                print("\n");
+            }
+            assert(false);
 
             added = true;
         }
