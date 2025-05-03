@@ -351,8 +351,8 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         // generation_size := (iVector2).{30, 30};
         // generate_enclosed_room(game_state, test_modules, generation_size);
 
-        init_generation();
-        
+        init_generation(*game_state.world_gen_arena);
+
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
 
@@ -422,7 +422,6 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         reload_asset_pointers(asset_manager);
     }
 
-
     WFC_render(*new_chunk, draw_frame);
 
     finished := process_generation(*game_state.world_gen_arena, draw_frame, time);
@@ -431,7 +430,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     if is_key_pressed(input_manager, xx SDL_SCANCODE_PERIOD)
     {
         reset_arena(*game_state.world_gen_arena);
-        init_generation();
+        init_generation(*game_state.world_gen_arena);
     }
 
     // NOTE(Sleepster): UPDATE PLAYER
