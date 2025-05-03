@@ -1829,6 +1829,9 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             }
             hallway_segments.count = segment_count;
 
+            grid_width  := most_right_x - most_left_x;
+            grid_height := highest_y    - lowest_y;
+
             added = true;
         }
     }
