@@ -1950,15 +1950,19 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                 }
             }
 
-            // for y: 0..grid_height - 1
-            // {
-            //     for x: 0..grid_width - 1
-            //     {
-            //         print("%", dungeon_grid[x][y]);
-            //     }
-            //     print("\n");
-            // }
-            // assert(false);
+            #no_reset printed: bool;
+            if !printed
+            {
+                for y: 0..dungeon_grid_height - 1
+                {
+                    for x: 0..dungeon_grid_width - 1
+                    {
+                        print("%", dungeon_grid[x][y].occupied);
+                    }
+                    print("\n");
+                }
+                printed = true;
+            }
 
             added = true;
         }
