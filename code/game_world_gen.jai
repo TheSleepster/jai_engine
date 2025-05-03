@@ -1219,6 +1219,12 @@ init_generation :: ()
 {
     radius     := 5.0;
     added       = false;
+    MST_index   = 0;
+    main_room_counter = 0;
+
+    array_reset(*triangulations);
+    point_list.data = null;
+    point_list.count = 0;
 
     // max_room_x : float32 = 35.0 * v2_cast(tile_size).x;
     // max_room_y : float32 = 40.0 * v2_cast(tile_size).x;
@@ -1243,9 +1249,10 @@ init_generation :: ()
         // TODO(Sleepster): Do we want to try a normal random distribution for better rooms? 
         room_size     := v2_floor(get_random_v2_normal_in_range(.{min_room_x, min_room_y}, .{max_room_x, max_room_y}));
 
-        room.position = room_position;
-        room.size     = room_size;
-        room.id       = xx room_index;
+        room.position     = room_position;
+        room.size         = room_size;
+        room.id           = xx room_index;
+        room.is_main_room = false;
     }
 }
 
@@ -1485,9 +1492,8 @@ MST_find :: (union_find: []u32, ID: u32) -> u32
 process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
 {
     finished := update_generation(draw_frame, time);
-    if finished
+    if finished && !added
     {
-        main_room_counter = 0;
 
         // NOTE(Sleepster): Calculate the mean room size 
         total_width: float32;
@@ -1515,7 +1521,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
 
         // NOTE(Sleepster): Build the point list of the delaunay triangulation 
         inserted: u32;
-        point_list = push_array(*context.garbage_arena, Vector2, main_room_counter);
+        point_list = push_array(arena, Vector2, main_room_counter);
         for *room: generation_rooms
         {
             if room.is_main_room
@@ -1565,7 +1571,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             world_gen_triangulate();
 
             // take all of the points in each of the edges, remove duplicates.
-            edges := push_array(*context.garbage_arena, Delaunay_Triangle_Edge, xx (triangulations.count * 3));
+            edges := push_array(arena, Delaunay_Triangle_Edge, xx (triangulations.count * 3));
             edges_inserted := 0;
             for *triangle: triangulations
             {
@@ -1603,11 +1609,11 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             ////////////////////////
             
             // construct a list of shortest vectors.
-            sorted_edges := push_array(*context.garbage_arena, Delaunay_Triangle_Edge, xx(edges_inserted));
+            sorted_edges := push_array(arena, Delaunay_Triangle_Edge, xx(edges_inserted));
             edge_MST      = push_array(arena, Delaunay_Triangle_Edge, xx(edges_inserted));
 
             vertex_count: u32 = 0;
-            unique_vertices := push_array(*context.garbage_arena, *Vector2, xx(edges_inserted * 4));
+            unique_vertices := push_array(arena, *Vector2, xx(edges_inserted * 4));
 
             // NOTE(Sleepster): This is a terrible way of doing this, first_point and second point should just be an array... TOO BAD! 
             for edge_index: 0..edges_inserted - 1
@@ -1646,7 +1652,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             memcpy(sorted_edges.data, edges.data, size_of(Delaunay_Triangle_Edge) * edges_inserted);
             quick_sort(sorted_edges, (A, B) => compare(B.edge_weight, A.edge_weight));
 
-            union_find := push_array(*context.garbage_arena, u32, vertex_count);
+            union_find := push_array(arena, u32, vertex_count);
             for 0..vertex_count - 1
             {
                 union_find[it] = it;
@@ -1674,6 +1680,45 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
 
                 // NOTE(Sleepster): overflow 
                 if MST_index == vertex_count - 1 break;
+            }
+
+            // remaining sorted edges that are not part of the MST are added back to the options
+            remaining_edges := push_array(arena, Delaunay_Triangle_Edge, xx edges_inserted);
+            remaining_edge_counter: u32;
+            for edge: sorted_edges
+            {
+                is_unique: bool = true;
+                for MST_edge: edge_MST
+                {
+                    if ((edge.first_point == MST_edge.first_point)  && (edge.second_point == MST_edge.second_point)) ||
+                       ((edge.first_point == MST_edge.second_point) && (edge.second_point == MST_edge.first_point))
+                    {
+                        is_unique = false;
+                    }
+                }
+
+                if is_unique
+                {
+                    remaining_edges[remaining_edge_counter] = edge;
+                    remaining_edge_counter += 1;
+                }
+            }
+
+            // add addtional leaves to the main tree by random chance
+            added_rooms: u32;
+            for index: 0..remaining_edge_counter - 1
+            {
+                if added_rooms < leaf_edges
+                {
+                    edge_to_check := remaining_edges[index];
+                    chance := random_get_zero_to_one(); 
+                    if chance > leaf_room_add_chance
+                    {
+                        edge_MST[MST_index] = edge_to_check;
+                        MST_index   += 1;
+                        added_rooms += 1;
+                    }
+                }
             }
 
             added = true;
@@ -1716,18 +1761,21 @@ draw_generation :: (draw_frame: *Draw_Frame_Data)
 
     for *A: generation_rooms
     {
-        color: Vector4;
-        if A.is_main_room
+        if A != null
         {
-            color = RED;
-            //draw_texture(draw_frame, v2_floor(A.position + (A.size * 0.5)) - .{1, 1}, .{1, 1}, sprite_outline, GREEN);
+            color: Vector4;
+            if A.is_main_room
+            {
+                color = RED;
+                //draw_texture(draw_frame, v2_floor(A.position + (A.size * 0.5)) - .{1, 1}, .{1, 1}, sprite_outline, GREEN);
+            }
+            else
+            {
+                color = WHITE;
+            }
+            
+            draw_texture(draw_frame, v2_floor(A.position), iv2_cast(A.size), sprite_outline, color);
         }
-        else
-        {
-            color = WHITE;
-        }
-        
-        draw_texture(draw_frame, v2_floor(A.position), iv2_cast(A.size), sprite_outline, color);
     }
 }
 
@@ -1735,10 +1783,12 @@ draw_generation :: (draw_frame: *Draw_Frame_Data)
 tile_size: iVector2 = .{16, 16};
 generation_rooms: [250]Generation_Room;
 
-update_radius      := 20.0;
-epsilon            := 0.1;
+update_radius := 20.0;
+epsilon       := 0.1;
 
-room_count := 150;
+room_count    := 150;
+leaf_edges    := 7;
+leaf_room_add_chance := 0.08;
 
 mean_room_width : float32;
 mean_room_height: float32;
@@ -1751,6 +1801,6 @@ super_triangle: Delaunay_Triangle;
 triangulations: [..]Delaunay_Triangle;
 
 edge_MST      : []Delaunay_Triangle_Edge; 
-#no_reset MST_index: u32;
+MST_index: u32;
 
-#no_reset added: bool;
+added: bool;

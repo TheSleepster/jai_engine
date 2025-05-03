@@ -1,6 +1,7 @@
 Game_State :: struct
 {
     game_arena            :  Memory_Arena;
+    world_gen_arena       :  Memory_Arena;
     WFC_arena             :  Memory_Arena;
     
     input_manager         : *Input_Manager;
@@ -424,11 +425,12 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
     WFC_render(*new_chunk, draw_frame);
 
-    finished := process_generation(*game_state.game_arena, draw_frame, time);
+    finished := process_generation(*game_state.world_gen_arena, draw_frame, time);
     draw_generation(draw_frame);
 
     if is_key_pressed(input_manager, xx SDL_SCANCODE_PERIOD)
     {
+        reset_arena(*game_state.world_gen_arena);
         init_generation();
     }
 
