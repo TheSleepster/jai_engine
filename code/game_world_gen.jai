@@ -1829,8 +1829,13 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             }
             hallway_segments.count = segment_count;
 
-            grid_width  := most_right_x - most_left_x;
-            grid_height := highest_y    - lowest_y;
+            grid_width  : u32 = most_right_x - most_left_x;
+            grid_height : u32 = highest_y    - lowest_y;
+            dungeon_grid := push_array(arena, []u8, grid_width);
+            for 0..grid_width - 1
+            {
+                dungeon_grid[it] = push_array(arena, u8, grid_height);
+            }
 
             added = true;
         }
@@ -1933,5 +1938,7 @@ edge_MST      : []Delaunay_Triangle_Edge;
 MST_index: u32;
 
 hallway_segments: []Line_Segment;
+
+dungeon_grid: [][]u8;
 
 added: bool;
