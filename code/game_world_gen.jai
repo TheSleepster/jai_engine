@@ -1200,7 +1200,7 @@ Generation_Room :: struct
     velocity        : Vector2;
 
     is_main_room    : bool;
-    is_in_final_set : bool;
+    is_lesser_room  : bool;
 };
 
 reset_generation :: ()
@@ -1309,6 +1309,11 @@ Line_Segment :: struct
     end   : Vector2;
 };
 
+World_Gen_Grid_Square :: struct
+{
+    parent_room_id : u64;
+    occupied       : u64;
+};
 
 is_point_within_circumcircle :: (point: Vector2, triangle: *Delaunay_Triangle) -> bool
 {
@@ -1763,8 +1768,10 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
 
                 if room_A && room_B
                 {
-                    room_midpoint := (Vector2).{(room_A.position.x + room_B.position.x) * 0.5,
-                                                (room_A.position.y + room_B.position.y) * 0.5};
+                    A_real_position := room_A.position + (room_A.size * 0.5);
+                    B_real_position := room_B.position + (room_B.size * 0.5);
+                    room_midpoint := (Vector2).{(A_real_position.x + B_real_position.x) * 0.5,
+                                                (A_real_position.y + B_real_position.y) * 0.5};
 
                     room_A_ymin := room_A.position.y;
                     room_A_ymax := room_A.position.y + room_A.size.y;
@@ -1784,41 +1791,42 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                     if y_overlap
                     {
                         // horizontal hallway
-                        xstart := min(room_A.position.x, room_B.position.x);
-                        xend   := max(room_A.position.x, room_B.position.x);
+                        xstart := min(A_real_position.x, B_real_position.x);
+                        xend   := max(A_real_position.x, B_real_position.x);
 
-                        hallway_segments[segment_count]     = .{(Vector2).{xstart, room_midpoint.y - 2}, (Vector2).{xend, room_midpoint.y - 1}};
-                        hallway_segments[segment_count + 2] = .{(Vector2).{xstart, room_midpoint.y}, (Vector2).{xend, room_midpoint.y}};
-                        hallway_segments[segment_count + 2] = .{(Vector2).{xstart, room_midpoint.y + 2}, (Vector2).{xend, room_midpoint.y + 1}};
+                        hallway_segments[segment_count]     = .{(Vector2).{xstart, room_midpoint.y - 2}, (Vector2).{xend, room_midpoint.y - 2}};
+                        hallway_segments[segment_count + 1] = .{(Vector2).{xstart, room_midpoint.y}, (Vector2).{xend, room_midpoint.y}};
+                        hallway_segments[segment_count + 2] = .{(Vector2).{xstart, room_midpoint.y + 2}, (Vector2).{xend, room_midpoint.y + 2}};
 
                         segment_count += 3;
+
                     }
                     else if x_overlap
                     {
                         // vertical hallway
-                        ystart := min(room_A.position.y, room_B.position.y);
-                        yend   := max(room_A.position.y, room_B.position.y);
+                        ystart := min(A_real_position.y, B_real_position.y);
+                        yend   := max(A_real_position.y, B_real_position.y);
 
-                        hallway_segments[segment_count]     = .{(Vector2).{room_midpoint.x - 2, ystart}, (Vector2).{room_midpoint.x - 1, yend}};
-                        hallway_segments[segment_count + 2] = .{(Vector2).{room_midpoint.x, ystart}, (Vector2).{room_midpoint.x, yend}};
-                        hallway_segments[segment_count + 2] = .{(Vector2).{room_midpoint.x + 2, ystart}, (Vector2).{room_midpoint.x + 1, yend}};
+                        hallway_segments[segment_count]     = .{(Vector2).{room_midpoint.x - 2, ystart}, (Vector2).{room_midpoint.x - 2, yend}};
+                        hallway_segments[segment_count + 1] = .{(Vector2).{room_midpoint.x, ystart}, (Vector2).{room_midpoint.x, yend}};
+                        hallway_segments[segment_count + 2] = .{(Vector2).{room_midpoint.x + 2, ystart}, (Vector2).{room_midpoint.x + 2, yend}};
 
                         segment_count += 3;
                     }
                     else
                     {
-                        // L shaped hallway
-                        corner_pos := (Vector2).{room_A.position.x, room_B.position.y};
+                        // L-shaped hallway
+                        corner_pos := (Vector2).{A_real_position.x, B_real_position.y};
 
-                        // vertical
-                        hallway_segments[segment_count]     = .{(Vector2).{room_A.position.x - 2, room_A.position.y}, (Vector2).{room_A.position.x - 1, room_B.position.y}};
-                        hallway_segments[segment_count + 2] = .{room_A.position, (Vector2).{room_A.position.x, room_B.position.y}};
-                        hallway_segments[segment_count + 2] = .{(Vector2).{room_A.position.x + 2, room_A.position.y}, (Vector2).{room_A.position.x + 1, room_B.position.y}};
+                        // Vertical segments (strictly vertical)
+                        hallway_segments[segment_count]     = .{(Vector2).{A_real_position.x - 1, A_real_position.y}, (Vector2).{A_real_position.x - 1, B_real_position.y}};
+                        hallway_segments[segment_count + 1] = .{(Vector2).{A_real_position.x, A_real_position.y}, (Vector2).{A_real_position.x, B_real_position.y}};
+                        hallway_segments[segment_count + 2] = .{(Vector2).{A_real_position.x + 1, A_real_position.y}, (Vector2).{A_real_position.x + 1, B_real_position.y}};
 
-                        // horizontal
-                        hallway_segments[segment_count + 3] = .{(Vector2).{room_A.position.x, room_B.position.y - 2}, (Vector2).{room_B.position.x, room_B.position.y - 1}};
-                        hallway_segments[segment_count + 4] = .{room_A.position, (Vector2).{room_A.position.x, room_B.position.y}};
-                        hallway_segments[segment_count + 5] = .{(Vector2).{room_A.position.x, room_B.position.y + 2}, (Vector2).{room_B.position.x, room_B.position.y + 1}};
+                        // Horizontal segments (strictly horizontal)
+                        hallway_segments[segment_count + 3] = .{(Vector2).{A_real_position.x, B_real_position.y - 1}, (Vector2).{B_real_position.x, B_real_position.y - 1}};
+                        hallway_segments[segment_count + 4] = .{(Vector2).{A_real_position.x, B_real_position.y}, (Vector2).{B_real_position.x, B_real_position.y}};
+                        hallway_segments[segment_count + 5] = .{(Vector2).{A_real_position.x, B_real_position.y + 1}, (Vector2).{B_real_position.x, B_real_position.y + 1}};
 
                         segment_count += 6;
                     }
@@ -1831,12 +1839,22 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             hallway_segments.count = segment_count;
 
             // initiailize the final grid
-            grid_width  : u32 = cast(u32)ceil(most_right_x - most_left_x);
-            grid_height : u32 = cast(u32)ceil(highest_y    - lowest_y);
-            dungeon_grid := push_array(arena, []u8, grid_width);
+            grid_width   : u32 = cast(u32)ceil(most_right_x - most_left_x);
+            grid_height  : u32 = cast(u32)ceil(highest_y    - lowest_y);
+            dungeon_grid := push_array(arena, []World_Gen_Grid_Square, grid_width);
             for 0..grid_width - 1
             {
-                dungeon_grid[it] = push_array(arena, u8, grid_height);
+                dungeon_grid[it] = push_array(arena, World_Gen_Grid_Square, grid_height);
+            }
+
+            for x: 0..grid_width - 1
+            {
+                for y: 0..grid_height - 1
+                {
+                    square := *dungeon_grid[x][y];
+                    square.occupied       = 0;
+                    square.parent_room_id = U64_MAX;
+                }
             }
 
             /* TODO(Sleepster): 
@@ -1845,11 +1863,47 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                 - fill in the blanks between the rooms
                 - modify the Generation_Room definitions so the WFC algorithm has full rooms to work with 
             */
+            for segment: hallway_segments
+            {
+                grid_start := (iVector2).{cast(s32)floor(segment.start.x - most_left_x), cast(s32)floor(segment.start.y - lowest_y)};
+                grid_end   := (iVector2).{cast(s32)floor(segment.end.x   - most_left_x), cast(s32)floor(segment.end.y   - lowest_y)};
+
+                diff_x := grid_end.x - grid_start.x;
+                diff_y := grid_end.y - grid_start.y;
+
+                // horizontal
+                if diff_x > 0
+                {
+                    for line_index: 0..diff_x - 1
+                    {
+                        cell := *dungeon_grid[grid_start.x + line_index][grid_start.y];
+                        if cell.parent_room_id != U64_MAX
+                        {
+                            room := *generation_rooms[cell.parent_room_id];
+                            room.is_lesser_room = true;
+                        }
+                    }
+                }
+
+                // vertical
+                if diff_y > 0
+                {
+                    for line_index: 0..diff_y - 1
+                    {
+                        cell := *dungeon_grid[grid_start.x][grid_start.y + line_index];
+                        if cell.parent_room_id != U64_MAX
+                        {
+                            room := *generation_rooms[cell.parent_room_id];
+                            room.is_lesser_room = true;
+                        }
+                    }
+                }
+            }
 
             // put the room/hallway data into the grid
             for *room: generation_rooms
             {
-                if room.is_main_room
+                if room.is_main_room || room.is_lesser_room
                 {
                     grid_x := cast(u32)floor(room.position.x - most_left_x);
                     grid_y := cast(u32)floor(room.position.y - lowest_y);
@@ -1862,21 +1916,40 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                             assert(new_x < grid_width);
                             assert(new_y < grid_height);
 
-                            dungeon_grid[new_x][new_y] = 1;
+                            square := dungeon_grid[new_x][new_y];
+                            square.occupied = 1;
+                            square.parent_room_id = room.id;
                         }
                     }
                 }
             }
 
-            for y: 0..grid_height - 1
+            for segment: hallway_segments
             {
-                for x: 0..grid_width - 1
+                grid_start := (iVector2).{cast(s32)floor(segment.start.x - most_left_x), cast(s32)floor(segment.start.y - lowest_y)};
+                grid_end   := (iVector2).{cast(s32)floor(segment.end.x   - most_left_x), cast(s32)floor(segment.end.y   - lowest_y)};
+                for x: grid_start.x..grid_end.x - 1
                 {
-                    print("%", dungeon_grid[x][y]);
+                    for y: grid_start.x..grid_end.y - 1
+                    {
+                        cell := *dungeon_grid[x][y];
+                        if cell.parent_room_id != U32_MAX
+                        {
+                            cell.occupied = 1;
+                        }
+                    }
                 }
-                print("\n");
             }
-            assert(false);
+
+            // for y: 0..grid_height - 1
+            // {
+            //     for x: 0..grid_width - 1
+            //     {
+            //         print("%", dungeon_grid[x][y]);
+            //     }
+            //     print("\n");
+            // }
+            // assert(false);
 
             added = true;
         }
