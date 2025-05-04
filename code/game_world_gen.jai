@@ -1839,17 +1839,17 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             hallway_segments.count = segment_count;
 
             // initiailize the final grid
-            grid_width   : u32 = cast(u32)ceil(most_right_x - most_left_x);
-            grid_height  : u32 = cast(u32)ceil(highest_y    - lowest_y);
-            dungeon_grid := push_array(arena, []World_Gen_Grid_Square, grid_width);
-            for 0..grid_width - 1
+            dungeon_grid_width   = cast(u32)ceil(most_right_x - most_left_x);
+            dungeon_grid_height  = cast(u32)ceil(highest_y    - lowest_y);
+            dungeon_grid := push_array(arena, []World_Gen_Grid_Square, dungeon_grid_width);
+            for 0..dungeon_grid_width - 1
             {
-                dungeon_grid[it] = push_array(arena, World_Gen_Grid_Square, grid_height);
+                dungeon_grid[it] = push_array(arena, World_Gen_Grid_Square, dungeon_grid_height);
             }
 
-            for x: 0..grid_width - 1
+            for x: 0..dungeon_grid_width - 1
             {
-                for y: 0..grid_height - 1
+                for y: 0..dungeon_grid_height - 1
                 {
                     square := *dungeon_grid[x][y];
                     square.occupied       = 0;
@@ -1913,8 +1913,8 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                         {
                             new_x := grid_x + delta_x;
                             new_y := grid_y + delta_y;
-                            assert(new_x < grid_width);
-                            assert(new_y < grid_height);
+                            assert(new_x < dungeon_grid_width);
+                            assert(new_y < dungeon_grid_height);
 
                             square := dungeon_grid[new_x][new_y];
                             square.occupied = 1;
@@ -1928,15 +1928,24 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             {
                 grid_start := (iVector2).{cast(s32)floor(segment.start.x - most_left_x), cast(s32)floor(segment.start.y - lowest_y)};
                 grid_end   := (iVector2).{cast(s32)floor(segment.end.x   - most_left_x), cast(s32)floor(segment.end.y   - lowest_y)};
-                for x: grid_start.x..grid_end.x - 1
+                if grid_start.y == grid_end.y  // Horizontal
                 {
-                    for y: grid_start.x..grid_end.y - 1
+                    y := grid_start.y;
+                    min_x := min(grid_start.x, grid_end.x);
+                    max_x := max(grid_start.x, grid_end.x);
+                    for x: min_x..max_x - 1
                     {
-                        cell := *dungeon_grid[x][y];
-                        if cell.parent_room_id != U32_MAX
-                        {
-                            cell.occupied = 1;
-                        }
+                        dungeon_grid[x][y].occupied = 1;
+                    }
+                }
+                else if grid_start.x == grid_end.x  // Vertical
+                {
+                    x := grid_start.x;
+                    min_y := min(grid_start.y, grid_end.y);
+                    max_y := max(grid_start.y, grid_end.y);
+                    for y: min_y..max_y - 1
+                    {
+                        dungeon_grid[x][y].occupied = 1;
                     }
                 }
             }
@@ -1963,21 +1972,6 @@ draw_generation :: (draw_frame: *Draw_Frame_Data)
     for *point: super_triangle.points
     {
         draw_texture(draw_frame, point, .{5, 5}, sprite_outline, BLUE);
-    }
-
-    for *triangle: triangulations
-    {
-        for edge: triangle.edges
-        {
-            // if !first
-            // {
-            //     draw_line(draw_frame, edge.first_point, edge.second_point, 4, BLUE);
-            //     first = true;
-            // }
-            // draw_texture(draw_frame, v2_floor(edge.first_point) - .{1, 1}, .{5, 5}, sprite_outline, GREEN);
-            // draw_texture(draw_frame, v2_floor(edge.second_point) - .{1, 1}, .{3, 3}, sprite_outline, BLUE);
-
-        }
     }
 
     for segment: hallway_segments
@@ -2053,6 +2047,8 @@ MST_index: u32;
 
 hallway_segments: []Line_Segment;
 
-dungeon_grid: [][]u8;
+dungeon_grid: [][]World_Gen_Grid_Square;
+dungeon_grid_width  : u32;
+dungeon_grid_height : u32;
 
 added: bool;
