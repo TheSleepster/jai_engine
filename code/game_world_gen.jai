@@ -2002,6 +2002,9 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             generation_rooms.data  = final_room_set.data;
             generation_rooms.count = final_room_set.count;
 
+            new_hallways: [..]Generation_Hallway;
+            defer free(new_hallways.data);
+
             // clip hallways to room boundaries, not go through them, create new hallways if needed
             to_remove: u32;
             new_hallway_count: u32;
@@ -2094,7 +2097,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                         }
                         
                         cell := *dungeon_grid[grid_pos.x][grid_pos.y];
-                        if cell.parent_room_id != U64_MAX
+                        if cell.parent_room_id == U64_MAX
                         {
                             is_valid = true;
                             break;
@@ -2108,23 +2111,40 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                     }
 
                     // properly line the hallways in such a way that they will become their own rooms 
-                    old_end: iVector2 = segment.end;
+
+                    old_end: Vector2 = segment.end;
+                    current_pos     := (iVector2).{start_x, start_y};
                     for offset: 0..length - 1
                     {
-                        grid_pos := (iVector2).{start_x + xx (advance.x * offset), start_y + xx (advance.y * offset)};
+                        grid_pos   := (iVector2).{start_x + xx (advance.x * offset), start_y + xx (advance.y * offset)};
+                        horizontal := segment.start.y == segment.end.y;
                         if grid_pos.x > xx dungeon_grid_width - 1 || grid_pos.y > xx dungeon_grid_height - 1 ||
                            grid_pos.x < 0                         || grid_pos.y < 0
                         {
                             break;
                         }
 
-                        cell := *dungeon_grid[grid_pos.x][grid_pos.y];
-                        if cell.parent_room_id == U64_MAX
+                        cell := *dungeon_grid[grid_pos.x + advance.x][grid_pos.y + advance.y];
+                        if cell.parent_room_id != U64_MAX
                         {
+                            new_hallway: Generation_Hallway;
+                            new_hallway.id        = segment_count;
+                            new_hallway.type      = ifx horizontal then .HORIZONTAL else .VERTICAL; 
+                            new_hallway.is_valid  = true;
+                            new_hallway.start     = .{segment.start.x + most_left_x, segment.start.y + lowest_y};
+                            new_hallway.end       = .{current_pos.x + most_left_x, current_pos.y + lowest_y};
+                            new_hallway.room_a_id = segment.room_a_id;
+                            new_hallway.room_b_id = cell.parent_room_id;
+                            new_hallway.L_pair_id = -1;
+
+                            array_add(*new_hallways, new_hallway);
+                            new_hallway_count += 1;
+                            
                             break;
                         }
+
+                        current_pos += advance;
                     }
-                    x := 0;
                 }
             }
             
@@ -2132,7 +2152,16 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             final_hallway_set := push_array(arena, Generation_Hallway, xx(hallway_segments.count + new_hallway_count));
             for *segment: hallway_segments
             {
-                if segment && segment.is_valid
+                if segment && segment.is_valid == true
+                {
+                    memcpy(cast(*u8)final_hallway_set.data + (copied * size_of(Generation_Hallway)), segment, size_of(Generation_Hallway));
+                    copied += 1;
+                }
+            }
+
+            for *segment: new_hallways 
+            {
+                if segment && segment.is_valid == true
                 {
                     memcpy(cast(*u8)final_hallway_set.data + (copied * size_of(Generation_Hallway)), segment, size_of(Generation_Hallway));
                     copied += 1;
