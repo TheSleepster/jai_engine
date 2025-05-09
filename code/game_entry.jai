@@ -417,7 +417,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         game_state.is_initialized = true;
         game_state.primary_game_camera = game_camera_create(0.1, 0); 
     }
-    if is_key_pressed(input_manager, xx SDL_SCANCODE_COMMA)
+    if is_key_pressed(input_manager, xx SDL_SCANCODE_H)
     {
         reload_asset_pointers(asset_manager);
     }
@@ -427,7 +427,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     finished := process_generation(*game_state.world_gen_arena, draw_frame, time);
     draw_generation(draw_frame);
 
-    if is_key_pressed(input_manager, xx SDL_SCANCODE_PERIOD)
+    if is_key_pressed(input_manager, xx SDL_SCANCODE_R)
     {
         reset_arena(*game_state.world_gen_arena);
         init_generation(*game_state.world_gen_arena);

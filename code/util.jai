@@ -150,6 +150,47 @@ operator + :: (A: iVector2, B: Vector2) -> iVector2
     return result;
 }
 
+operator + :: (A: iVector2, B: iVector2) -> iVector2
+{
+    result: iVector2 = ---;
+    result.x = A.x + B.x;
+    result.y = A.y + B.y;
+
+    return result;
+}
+
+operator - :: (A: iVector2, B: iVector2) -> iVector2
+{
+    result: iVector2 = ---;
+    result.x = A.x - B.x;
+    result.y = A.y - B.y;
+
+    return result;
+}
+
+operator * :: (A: iVector2, B: iVector2) -> iVector2
+{
+    result: iVector2 = ---;
+    result.x = A.x * B.x;
+    result.y = A.y * B.y;
+
+    return result;
+}
+
+operator * :: (A: iVector2, B: s32) -> iVector2
+{
+    result: iVector2 = ---;
+    result.x = A.x * B;
+    result.y = A.y * B;
+
+    return result;
+}
+
+operator == :: (A: iVector2, B: iVector2) -> bool
+{
+    return A.x == B.x || A.y == B.y;
+}
+
 v2_cast :: inline (vector: iVector2) -> Vector2
 {
     result: Vector2 = ---;
