@@ -61,6 +61,7 @@ create_draw_quad :: (draw_frame          : *Draw_Frame_Data,
                      render_color        : Vector4) -> Render_Quad
 {
     assert(draw_frame.draw_frame_quad_counter + 1 < MAX_QUADS_PER_DRAW);
+
     top    := position.y;
     bottom := position.y + render_size.y;
     left   := position.x;

@@ -2110,40 +2110,64 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                         continue;
                     }
 
-                    // properly line the hallways in such a way that they will become their own rooms 
-
-                    old_end: Vector2 = segment.end;
-                    current_pos     := (iVector2).{start_x, start_y};
-                    for offset: 0..length - 1
+                    // Properly split hallways into distinct room-like segments
+                    if segment.is_valid
                     {
-                        grid_pos   := (iVector2).{start_x + xx (advance.x * offset), start_y + xx (advance.y * offset)};
-                        horizontal := segment.start.y == segment.end.y;
-                        if grid_pos.x > xx dungeon_grid_width - 1 || grid_pos.y > xx dungeon_grid_height - 1 ||
-                           grid_pos.x < 0                         || grid_pos.y < 0
+                        old_end: Vector2 = segment.end;
+                        initial_grid_pos: iVector2 = .{xx floor(segment.start.x - most_left_x), xx floor(segment.start.y - lowest_y)};
+                        segment_grid_end: iVector2 = .{xx floor(segment.end.x   - most_left_x), xx floor(segment.end.y   - lowest_y)};
+                        current_grid_pos: iVector2 = initial_grid_pos;
+                        next_grid_pos   : iVector2 = initial_grid_pos;
+                        last_start      : Vector2  = segment.start;
+                        last_end        : Vector2  = segment.end;
+
+                        is_inside_room : bool = false;
+                        was_inside_room: bool = false;
+                        while current_grid_pos.x != segment_grid_end.x || current_grid_pos.y != segment_grid_end.y
                         {
-                            break;
+                            next_grid_pos += advance;
+                            if current_grid_pos.x > xx dungeon_grid_width - 1 || current_grid_pos.y > xx dungeon_grid_height - 1 ||
+                               current_grid_pos.x < 0                         || current_grid_pos.y < 0
+                            {
+                                break;
+                            }
+
+                            cell := *dungeon_grid[current_grid_pos.x][current_grid_pos.y];
+                            if cell.parent_room_id != U64_MAX
+                            {
+                                new_grid_end  := current_grid_pos;
+                                last_end       = .{new_grid_end.x + most_left_x, new_grid_end.y + lowest_y};
+                                segment.end    = last_end;
+                                
+                                is_inside_room = true;
+                                while is_inside_room
+                                {
+                                    if next_grid_pos.x > xx dungeon_grid_width - 1 || next_grid_pos.y > xx dungeon_grid_height - 1 ||
+                                       next_grid_pos.x < 0                         || next_grid_pos.y < 0
+                                    {
+                                        is_inside_room = false;
+                                        break;
+                                    }
+
+                                    dungeon_cell := *dungeon_grid[next_grid_pos.x][next_grid_pos.y];
+                                    if dungeon_cell.parent_room_id == U64_MAX
+                                    {
+                                        is_inside_room  = false;
+                                        was_inside_room = true;
+                                    }
+                                    next_grid_pos += advance;
+                                }
+
+                                if was_inside_room
+                                {
+                                    // create a new segment to make up for the fact that we clipped the old segment
+                                    // replace the current working segment's end with the end we computed before
+                                    last_start = .{next_grid_pos.x + most_left_x, next_grid_pos.y + lowest_y}; 
+                                }
+                            }
+
+                            current_grid_pos = next_grid_pos;
                         }
-
-                        cell := *dungeon_grid[grid_pos.x + advance.x][grid_pos.y + advance.y];
-                        if cell.parent_room_id != U64_MAX
-                        {
-                            new_hallway: Generation_Hallway;
-                            new_hallway.id        = segment_count;
-                            new_hallway.type      = ifx horizontal then .HORIZONTAL else .VERTICAL; 
-                            new_hallway.is_valid  = true;
-                            new_hallway.start     = .{segment.start.x + most_left_x, segment.start.y + lowest_y};
-                            new_hallway.end       = .{current_pos.x + most_left_x, current_pos.y + lowest_y};
-                            new_hallway.room_a_id = segment.room_a_id;
-                            new_hallway.room_b_id = cell.parent_room_id;
-                            new_hallway.L_pair_id = -1;
-
-                            array_add(*new_hallways, new_hallway);
-                            new_hallway_count += 1;
-                            
-                            break;
-                        }
-
-                        current_pos += advance;
                     }
                 }
             }
