@@ -1231,6 +1231,9 @@ Generation_Hallway :: struct
     room_a_id : u64;
     room_b_id : u64;
     L_pair_id : s64;
+
+    debug_clipped: bool = false;
+    debug_new_segment: bool = false;
 };
 
 reset_generation :: ()
@@ -1343,6 +1346,7 @@ World_Gen_Grid_Square :: struct
 {
     parent_room_id : u64;
     occupied       : u64;
+    debug_hallway  : bool;
 };
 
 is_point_within_circumcircle :: (point: Vector2, triangle: *Delaunay_Triangle) -> bool
@@ -1831,7 +1835,9 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                                                              (Vector2).{xend, room_midpoint.y},
                                                              room_A.id,
                                                              room_B.id,
-                                                             -1};
+                                                             -1,
+                                                             false,
+                                                             false};
                         hallway_segments[segment_count] = new_segment;
                         segment_count += 1;
 
@@ -1849,7 +1855,9 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                                                              (Vector2).{room_midpoint.x, yend},
                                                               room_A.id,
                                                              room_B.id,
-                                                             -1};
+                                                             -1,
+                                                             false,
+                                                             false};
                         hallway_segments[segment_count];
                         segment_count += 1;
                     }
@@ -1866,15 +1874,19 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                                                                   (Vector2).{A_real_position.x, B_real_position.y},
                                                                   room_A.id,
                                                                   room_B.id,
-                                                                  -1};
-                        horizontal_hallway := (Generation_Hallway).{segment_count,
+                                                                  -1,
+                                                                  false,
+                                                                  false};
+                        horizontal_hallway := (Generation_Hallway).{segment_count + 1,
                                                                     .HORIZONTAL,
                                                                     true,
                                                                     (Vector2).{A_real_position.x, B_real_position.y},
                                                                     (Vector2).{B_real_position.x, B_real_position.y},
                                                                     room_A.id,
                                                                     room_B.id,
-                                                                    -1};
+                                                                    -1,
+                                                                    false,
+                                                                    false};
                         vertical_hallway.L_pair_id          = segment_count + 1;
                         horizontal_hallway.L_pair_id        = segment_count;
                         hallway_segments[segment_count]     = vertical_hallway;
@@ -1955,7 +1967,9 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                         }
                     }
                     // not yet
-                    cell.occupied = 1;
+                    // cell.occupied = 1;
+                    // cell.debug_hallway = true;
+
                 }
             }
 
@@ -1968,7 +1982,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                     if square.parent_room_id != U64_MAX
                     {
                         room := *generation_rooms[square.parent_room_id];
-                        if room.type != room_type.MAIN && room.type != room_type.LESSER
+                        if room.type != .MAIN && room.type != .LESSER
                         {
                             square.occupied = 0;
                             square.parent_room_id = U64_MAX;
@@ -2110,21 +2124,22 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                         continue;
                     }
 
-                    // Properly split hallways into distinct room-like segments
+                    // Properly split hallways into distinct room segments
                     if segment.is_valid
                     {
                         old_end: Vector2 = segment.end;
-                        initial_grid_pos: iVector2 = .{xx floor(segment.start.x - most_left_x), xx floor(segment.start.y - lowest_y)};
-                        segment_grid_end: iVector2 = .{xx floor(segment.end.x   - most_left_x), xx floor(segment.end.y   - lowest_y)};
+                        initial_grid_pos: iVector2 = .{cast(s32)floor(segment.start.x - most_left_x), cast(s32)floor(segment.start.y - lowest_y)};
+                        segment_grid_end: iVector2 = .{cast(s32)floor(segment.end.x   - most_left_x), cast(s32)floor(segment.end.y   - lowest_y)};
                         current_grid_pos: iVector2 = initial_grid_pos;
                         next_grid_pos   : iVector2 = initial_grid_pos;
                         last_start      : Vector2  = segment.start;
                         last_end        : Vector2  = segment.end;
 
-                        is_inside_room : bool = false;
-                        was_inside_room: bool = false;
                         while current_grid_pos.x != segment_grid_end.x || current_grid_pos.y != segment_grid_end.y
                         {
+                            is_inside_room : bool = false;
+                            was_inside_room: bool = false;
+
                             next_grid_pos += advance;
                             if current_grid_pos.x > xx dungeon_grid_width - 1 || current_grid_pos.y > xx dungeon_grid_height - 1 ||
                                current_grid_pos.x < 0                         || current_grid_pos.y < 0
@@ -2132,12 +2147,17 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                                 break;
                             }
 
+                            intercepted_id: u64;
                             cell := *dungeon_grid[current_grid_pos.x][current_grid_pos.y];
                             if cell.parent_room_id != U64_MAX
                             {
-                                new_grid_end  := current_grid_pos;
+                                new_grid_end  :=  current_grid_pos;
                                 last_end       = .{new_grid_end.x + most_left_x, new_grid_end.y + lowest_y};
-                                segment.end    = last_end;
+                                segment.end    =  last_end;
+                                segment.debug_clipped = true;
+                                //assert(segment.end != old_end);
+
+                                intercepted_id = cell.parent_room_id;
                                 
                                 is_inside_room = true;
                                 while is_inside_room
@@ -2163,16 +2183,34 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                                     // create a new segment to make up for the fact that we clipped the old segment
                                     // replace the current working segment's end with the end we computed before
                                     last_start = .{next_grid_pos.x + most_left_x, next_grid_pos.y + lowest_y}; 
+
+                                    new_segment: Generation_Hallway;
+                                    new_segment.id        = segment_count;
+                                    new_segment.type      = ifx horizontal then .HORIZONTAL else .VERTICAL;
+                                    new_segment.is_valid  = true;
+                                    new_segment.room_a_id = intercepted_id;
+                                    new_segment.room_b_id = segment.room_b_id;
+                                    new_segment.L_pair_id = ifx segment.L_pair_id == -1 then -1 else segment.L_pair_id;
+                                    new_segment.start     = last_start;
+                                    new_segment.end       = old_end;
+                                    new_segment.debug_new_segment = true;
+
+                                    last_start = new_segment.start;
+                                    segment_count += 1;
+
+                                    array_add(*new_hallways, new_segment);
+                                    new_hallway_count += 1;
                                 }
                             }
 
                             current_grid_pos = next_grid_pos;
                         }
                     }
+
                 }
             }
             
-            copied: u32;
+            copied: u32 = 0;
             final_hallway_set := push_array(arena, Generation_Hallway, xx(hallway_segments.count + new_hallway_count));
             for *segment: hallway_segments
             {
@@ -2195,38 +2233,71 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             hallway_segments.data  = final_hallway_set.data;
             hallway_segments.count = final_hallway_set.count - to_remove;
 
+            // place hallways and check for room intersections
+            for segment: hallway_segments
+            {
+                grid_start := (iVector2).{cast(s32)floor(segment.start.x - most_left_x), cast(s32)floor(segment.start.y - lowest_y)};
+                grid_end   := (iVector2).{cast(s32)floor(segment.end.x   - most_left_x), cast(s32)floor(segment.end.y   - lowest_y)};
+                
+                is_horizontal := segment.type == .HORIZONTAL;
+                fixed_value   := ifx is_horizontal then grid_start.y else grid_start.x;
+                min_varying   := ifx is_horizontal then min(grid_start.x, grid_end.x) else min(grid_start.y, grid_end.y);
+                max_varying   := ifx is_horizontal then max(grid_start.x, grid_end.x) else max(grid_start.y, grid_end.y);
+                
+                for i: 0..(max_varying - min_varying - 1)
+                {
+                    x := ifx is_horizontal then (min_varying + i) else fixed_value;
+                    y := ifx is_horizontal then fixed_value else (min_varying + i);
+                    cell := *dungeon_grid[x][y];
+                    if cell.parent_room_id == U64_MAX
+                    {
+                        cell.occupied = 1;
+                        cell.debug_hallway = true;
+                    }
+                    else if cell.parent_room_id != U64_MAX
+                    {
+                        cell.occupied = 1;
+                    }
+                    // not yet
+                }
+            }
+
             /*
             // TODO(Sleepster):  
                 - [x] Modify the segments so that they are able to store the rooms that they are connecting
                 - [x] Cull the hallways so that the grid cells that their segments travel through are instead left to the room they intersect with, not the hallway
-                - [ ] Turn the hallways into their own generation rooms 
+                - [x] Turn the hallways into their own generation rooms 
                 - [ ] add the hallways to the generation room list with a random size from a table of widths (3, 5, 7, 9, 11)
                 - [ ] (stretch goal 1) have the rooms feed through the WFC algorithm
                 - [ ] (stretch goal 2) think of a way to make the rooms have precollapsed cells based on their neighboring rooms
             */
 
             //Print the grid
-            // #no_reset printed: bool;
-            // if !printed
-            // {
-            //     for y: 0..dungeon_grid_height - 1
-            //     {
-            //         for x: 0..dungeon_grid_width - 1
-            //         {
-            //             cell := dungeon_grid[x][y];
-            //             if cell.occupied
-            //             {
-            //                 print("%", 0);
-            //             }
-            //             else
-            //             {
-            //                 print("%", 1);
-            //             }
-            //         }
-            //         print("\n");
-            //     }
-            //     printed = true;
-            // }
+            #no_reset printed: bool;
+            if !printed
+            {
+                for y: 0..dungeon_grid_height - 1
+                {
+                    for x: 0..dungeon_grid_width - 1
+                    {
+                        cell := dungeon_grid[x][y];
+                        if cell.debug_hallway
+                        {
+                            print("%", 2);
+                        }
+                        else if cell.occupied
+                        {
+                            print("%", 1);
+                        }
+                        else
+                        {
+                            print("%", 0);
+                        }
+                    }
+                    print("\n");
+                }
+                printed = true;
+            }
 
             added = true;
         }
@@ -2247,13 +2318,23 @@ draw_generation :: (draw_frame: *Draw_Frame_Data)
             
             step_count  := cast(s32)length + 1;
             step_vector := direction / length;
+
+            color: Vector4 = ORANGE;
+            if segment.debug_clipped
+            {
+                color = GREEN;
+            }
+            else if segment.debug_new_segment
+            {
+                color = PURPLE;
+            }
             
             for 0..step_count - 1
             {
                 position    := segment.start + step_vector * cast(float32)it;
                 render_size := (iVector2).{thickness.x, thickness.y}; 
                 
-                draw_texture(draw_frame, position - (Vector2).{cast(float32)thickness.x / 2, cast(float32)thickness.y / 2}, render_size, sprite_textureless, ORANGE);
+                draw_texture(draw_frame, position - (Vector2).{cast(float32)thickness.x / 2, cast(float32)thickness.y / 2}, render_size, sprite_textureless, color);
             }
         }
     }

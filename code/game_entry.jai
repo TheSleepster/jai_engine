@@ -787,6 +787,7 @@ BLUE  :: (Vector4).{0, 0, 1, 1};
 BLACK :: (Vector4).{0, 0, 0, 1};
 
 ORANGE :: #run hex_to_rgba(0xFFAD00FF);
+PURPLE :: #run hex_to_rgba(0xFF00FFFF);
 
 LIGHT_GRAY :: (Vector4).{0.8, 0.8, 0.8, 1.0};
 
