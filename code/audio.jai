@@ -220,6 +220,7 @@ fill_sound_buffer :: (primary_stream_buffer: *SDL_AudioStream, buffer_data: *Aud
     }
 }
 
+// TODO(Sleepster): memset????? 
 clear_sound_buffer :: (buffer_data: *Audio_Buffer_Data)
 {
     using buffer_data;
@@ -258,6 +259,7 @@ mixer_handle_all_playing_sounds :: (sound_manager: *Sound_Manager, time: Time_Da
     dest_00: *float32 = mixer_buffer_00;
     dest_01: *float32 = mixer_buffer_01;
 
+    // TODO(Sleepster): memset????? 
     if manager_buffer_info.samples_to_output != 0
     {
         for 0..manager_buffer_info.samples_to_output - 1

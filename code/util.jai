@@ -73,6 +73,32 @@ is_equal :: (A: float32, B: float32, epsilon: float32) -> bool
     return abs(A - B) <= epsilon;
 }
 
+f32_round :: (A: float32) -> float32
+{
+    result: float32 = ---;
+
+    floored := A - floor(A);
+    if floored >= 0.5
+    {
+        result = ceil(A);
+    }
+    else
+    {
+        result = floor(A);
+    }
+
+    return result;
+}
+
+v2_round :: (A: Vector2) -> Vector2
+{
+    result: Vector2 = ---;
+    result.x = f32_round(A.x);
+    result.y = f32_round(A.y);
+
+    return result;
+}
+
 approach_target :: (value: *float32, target_value: float32, rate: float32, delta: float32)
 {
     <<value += cast(float32)(target_value - <<value) * (1.0 - pow(2.0, -rate * delta));
