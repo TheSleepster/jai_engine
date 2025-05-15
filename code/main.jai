@@ -1,35 +1,3 @@
-#if OS == .WINDOWS
-{
-    W :: #import "Windows";
-    platform_allocate_memory :: inline (size: u64) -> *void
-    {
-        data := W.VirtualAlloc(null, xx size, W.MEM_COMMIT|W.MEM_RESERVE, W.PAGE_READWRITE);
-        //log("[INFO]: Virtual alloc called with a size of: %mb\n", cast(float32)(size / 1048576.0));
-        return data;
-    }
-
-    platform_deallocate_memory :: (data: *void, size: u64)
-    {
-        W.VirtualFree(data, 0, W.MEM_RELEASE);
-    }
-}
-#if OS == .LINUX
-{
-    P :: #import "POSIX";
-
-    platform_allocate_memory :: inline (size: u64) -> *void
-    {
-        data := P.mmap(null, size, P.PROT_READ|P.PROT_WRITE, P.MAP_PRIVATE|P.MAP_ANONYMOUS, -1, 0);
-        //log("[INFO]: mmap called with a size of: %mb\n", cast(float32)(size / 1048576.0));
-        return data;
-    }
-
-    platform_deallocate_memory :: inline (data: *void, size: u64)
-    {
-        P.munmap(data, size);
-    }
-}
-
 #import "Basic";
 #import "Math";
 #import "String";
@@ -54,6 +22,7 @@
 
 
 // ENGINE LOADS
+#load   "platform_data.jai";
 #load   "util.jai";
 #load   "memory.jai";
 #load   "sl_hash_table.jai";
@@ -204,7 +173,6 @@ main :: ()
         // TODO(Sleepster): Why is this here? 
         entity_manager  :  Entity_Manager;
 
-        
         window_data.window_size = .{1920, 1080};
         window_data.window = SDL_CreateWindow("Hello, Sailor",
                                               SDL_WINDOWPOS_CENTERED,
@@ -246,13 +214,20 @@ main :: ()
                     draw_frame_data.vertex_buffer_ptr     = *draw_frame_data.primary_vertex_buffer[0];
                 }
 
-                // GAME MEMORY 
-                {
-                    //game_state.game_arena = init_arena(*game_memory.permanent_storage, xx MB(200));
-                }
-
                 game_state.input_manager  = *input_manager;
                 game_state.entity_manager = *entity_manager;
+            }
+
+            // THREADING INIT
+            {
+                system_thread_count := platform_get_cpu_count();
+                if system_thread_count != -1
+                {
+                    for 0..system_thread_count - 1
+                    {
+                        platform_create_thread();
+                    }
+                }
             }
 
             // ASSET INIT
@@ -279,8 +254,11 @@ main :: ()
                     // }
                 }
 
-                sound_manager.device_id =
-                    SDL_OpenAudioDevice(sound_manager.default_device.data, 0, *sound_manager.manager_spec, *sound_manager.device_spec, SDL_AUDIO_ALLOW_ANY_CHANGE);
+                sound_manager.device_id = SDL_OpenAudioDevice(sound_manager.default_device.data,
+                                                              0,
+                                                              *sound_manager.manager_spec,
+                                                              *sound_manager.device_spec,
+                                                              SDL_AUDIO_ALLOW_ANY_CHANGE);
                 if sound_manager.device_id
                 {
                     log("Audio device opened: %\n", to_string(SDL_GetAudioDeviceName(cast(s32)sound_manager.device_id, 0)));
@@ -311,8 +289,8 @@ main :: ()
                 sound_manager.manager_buffer_info.secondary_sample_buffer = cast(*s16)push_array(*sound_manager.sound_arena, s16, sound_manager.manager_buffer_info.sample_buffer_size).data;
                 sound_manager.manager_buffer_info.sample_latency          = SAMPLES_PER_SECOND / 5;
             }
-            init_opengl(*game_memory, *window_data, *render_state, game_state, *draw_frame_data);
 
+            init_opengl(*game_memory, *window_data, *render_state, game_state, *draw_frame_data);
             // TIME INIT
             {
                 time.performance_counter_frequency = SDL_GetPerformanceFrequency();
