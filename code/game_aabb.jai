@@ -40,8 +40,14 @@ AABB_get_area :: inline (range: AABB) -> Vector2
     return area;
 }
 
-AABB_is_within :: inline (position: Vector2, range: AABB) -> bool
+AABB_is_point_within :: inline (position: Vector2, range: AABB) -> bool
 {
     return (position.x >= range.min.x) && (position.x <= range.max.x) &&
            (position.y >= range.min.y) && (position.y <= range.max.y);
+}
+
+AABB_collision :: inline (A: AABB, B: AABB) -> bool
+{
+    return A.min.x <= B.max.x && A.max.x >= B.min.x &&
+           A.min.y <= B.max.y && A.max.y >= B.min.y;
 }

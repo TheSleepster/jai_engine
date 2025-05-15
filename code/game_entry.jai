@@ -520,7 +520,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
                         {
                             entity.bounding_box.min -= .{4, 2};
                             entity.bounding_box.max -= .{4, 2};
-                            if AABB_is_within(position_to_place, entity.bounding_box)
+                            if AABB_is_point_within(position_to_place, entity.bounding_box)
                             {
                                 collision = true;
                             }
