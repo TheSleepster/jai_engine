@@ -64,7 +64,7 @@ Entity :: struct
     attached_entity : *Entity;
     direction       :  Vector2;
 
-    bounding_box    :  Range_V2;
+    bounding_box    :  AABB;
 
     current_health  :  s32;
     max_health      :  s32;

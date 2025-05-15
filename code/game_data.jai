@@ -156,7 +156,7 @@ spawn_item :: (game_state: *Game_State, item_id: Item_ID) -> *Entity
     entity.draw_color   = WHITE;
     entity.flags       |= item_data.flags_when_dropped;
     entity.render_size  = entity.sprite_data.atlas_size;
-    entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
+    entity.bounding_box = AABB_create(entity.position, entity.position + entity.render_size);
     entity.pickup_delay = item_data.pickup_delay;
     entity.pickup_timer = item_data.pickup_delay;
 

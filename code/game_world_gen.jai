@@ -1942,7 +1942,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                 }
             }
 
-            // place hallways and check for room intersections
+            //   check hallways for room intersections
             for segment: hallway_segments
             {
                 grid_start := (iVector2).{cast(s32)floor(segment.start.x - most_left_x), cast(s32)floor(segment.start.y - lowest_y)};
@@ -1974,9 +1974,9 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             }
 
             // final pass to clear cells not belonging to main or lesser rooms
-            for x: 0..dungeon_grid_width - 1
+            for y: 0..dungeon_grid_height - 1
             {
-                for y: 0..dungeon_grid_height - 1
+                for x: 0..dungeon_grid_width - 1
                 {
                     square := *dungeon_grid[x][y];
                     if square.parent_room_id != U64_MAX
@@ -2152,7 +2152,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                             if cell.parent_room_id != U64_MAX
                             {
                                 new_grid_end  :=  current_grid_pos;
-                                last_end       = .{new_grid_end.x + most_left_x, new_grid_end.y + lowest_y};
+                                last_end       = .{(current_grid_pos.x - advance.x) + most_left_x, (current_grid_pos.y - advance.y) + lowest_y};
                                 segment.end    =  last_end;
                                 segment.debug_clipped = true;
                                 //assert(segment.end != old_end);
@@ -2162,6 +2162,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                                 is_inside_room = true;
                                 while is_inside_room
                                 {
+                                    next_grid_pos += advance;
                                     if next_grid_pos.x > xx dungeon_grid_width - 1 || next_grid_pos.y > xx dungeon_grid_height - 1 ||
                                        next_grid_pos.x < 0                         || next_grid_pos.y < 0
                                     {
@@ -2174,32 +2175,34 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                                     {
                                         is_inside_room  = false;
                                         was_inside_room = true;
+                                        break;
                                     }
-                                    next_grid_pos += advance;
                                 }
 
                                 if was_inside_room
                                 {
                                     // create a new segment to make up for the fact that we clipped the old segment
                                     // replace the current working segment's end with the end we computed before
-                                    last_start = .{next_grid_pos.x + most_left_x, next_grid_pos.y + lowest_y}; 
+                                    new_cell  := *dungeon_grid[next_grid_pos.x][next_grid_pos.y];
+                                    assert(new_cell.parent_room_id == U64_MAX);
+
+                                    new_seg_start := (Vector2).{next_grid_pos.x + most_left_x, next_grid_pos.y + lowest_y};
 
                                     new_segment: Generation_Hallway;
-                                    new_segment.id        = segment_count;
+                                    new_segment.id        = segment_count + new_hallway_count;
                                     new_segment.type      = ifx horizontal then .HORIZONTAL else .VERTICAL;
                                     new_segment.is_valid  = true;
                                     new_segment.room_a_id = intercepted_id;
                                     new_segment.room_b_id = segment.room_b_id;
                                     new_segment.L_pair_id = ifx segment.L_pair_id == -1 then -1 else segment.L_pair_id;
-                                    new_segment.start     = last_start;
+                                    new_segment.start     = new_seg_start;
                                     new_segment.end       = old_end;
                                     new_segment.debug_new_segment = true;
 
-                                    last_start = new_segment.start;
-                                    segment_count += 1;
-
                                     array_add(*new_hallways, new_segment);
                                     new_hallway_count += 1;
+
+                                    last_start = new_seg_start;
                                 }
                             }
 
@@ -2233,7 +2236,6 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             hallway_segments.data  = final_hallway_set.data;
             hallway_segments.count = final_hallway_set.count - to_remove;
 
-            // place hallways and check for room intersections
             for segment: hallway_segments
             {
                 grid_start := (iVector2).{cast(s32)floor(segment.start.x - most_left_x), cast(s32)floor(segment.start.y - lowest_y)};
@@ -2257,6 +2259,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                     else if cell.parent_room_id != U64_MAX
                     {
                         cell.occupied = 1;
+                        cell.debug_hallway = true;
                     }
                     // not yet
                 }
@@ -2273,31 +2276,31 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             */
 
             //Print the grid
-            #no_reset printed: bool;
-            if !printed
-            {
-                for y: 0..dungeon_grid_height - 1
-                {
-                    for x: 0..dungeon_grid_width - 1
-                    {
-                        cell := dungeon_grid[x][y];
-                        if cell.debug_hallway
-                        {
-                            print("%", 2);
-                        }
-                        else if cell.occupied
-                        {
-                            print("%", 1);
-                        }
-                        else
-                        {
-                            print("%", 0);
-                        }
-                    }
-                    print("\n");
-                }
-                printed = true;
-            }
+            // #no_reset printed: bool;
+            // if !printed
+            // {
+            //     for y: 0..dungeon_grid_height - 1
+            //     {
+            //         for x: 0..dungeon_grid_width - 1
+            //         {
+            //             cell := dungeon_grid[x][y];
+            //             if cell.debug_hallway
+            //             {
+            //                 print("%", 2);
+            //             }
+            //             else if cell.occupied
+            //             {
+            //                 print("%", 1);
+            //             }
+            //             else
+            //             {
+            //                 print("%", 0);
+            //             }
+            //         }
+            //         print("\n");
+            //     }
+            //     printed = true;
+            // }
 
             added = true;
         }
@@ -2318,21 +2321,29 @@ draw_generation :: (draw_frame: *Draw_Frame_Data)
             
             step_count  := cast(s32)length + 1;
             step_vector := direction / length;
-
-            color: Vector4 = ORANGE;
-            if segment.debug_clipped
-            {
-                color = GREEN;
-            }
-            else if segment.debug_new_segment
-            {
-                color = PURPLE;
-            }
             
-            for 0..step_count - 1
+            for step_index: 0..step_count - 1
             {
-                position    := segment.start + step_vector * cast(float32)it;
+                color: Vector4 = ORANGE;
+                if segment.debug_clipped
+                {
+                    color = GREEN;
+                }
+                else if segment.debug_new_segment
+                {
+                    color = BLACK;
+                }
+
+                position    := segment.start + step_vector * cast(float32)step_index;
                 render_size := (iVector2).{thickness.x, thickness.y}; 
+                if position == segment.start && step_index == 0
+                {
+                    color = CYAN;
+                }
+                else if position == segment.end
+                {
+                    color = PURPLE;
+                }
                 
                 draw_texture(draw_frame, position - (Vector2).{cast(float32)thickness.x / 2, cast(float32)thickness.y / 2}, render_size, sprite_textureless, color);
             }

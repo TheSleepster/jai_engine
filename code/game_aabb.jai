@@ -1,21 +1,21 @@
-Range_V2 :: struct
+AABB :: struct
 {
     min : Vector2;
     max : Vector2;
 }
 
-range_v2_create :: inline (min: Vector2, max: Vector2) -> Range_V2
+AABB_create :: inline (min: Vector2, max: Vector2) -> AABB
 {
-    result: Range_V2 = ---;
+    result: AABB = ---;
     result.min = min;
     result.max = max;
 
     return result;
 }
 
-range_v2_shift :: inline (range: Range_V2, shift: Vector2) -> Range_V2
+AABB_shift :: inline (range: AABB, shift: Vector2) -> AABB
 {
-    new_range: Range_V2 = ---;
+    new_range: AABB = ---;
     
     new_range.min = range.min + shift;
     new_range.max = range.max + shift;
@@ -23,7 +23,7 @@ range_v2_shift :: inline (range: Range_V2, shift: Vector2) -> Range_V2
     return new_range;
 }
 
-range_v2_make_centered :: inline (position: Vector2, area: Vector2) -> Vector2
+AABB_make_centered :: inline (position: Vector2, area: Vector2) -> Vector2
 {
     center: Vector2 = ---;
     center.x = position.x + (area.x * 0.5);
@@ -32,7 +32,7 @@ range_v2_make_centered :: inline (position: Vector2, area: Vector2) -> Vector2
     return center;
 }
 
-range_v2_get_area :: inline (range: Range_V2) -> Vector2
+AABB_get_area :: inline (range: AABB) -> Vector2
 {
     area: Vector2 = ---;
     area = abs(range.min - range.max);
@@ -40,7 +40,7 @@ range_v2_get_area :: inline (range: Range_V2) -> Vector2
     return area;
 }
 
-range_v2_is_within :: inline (position: Vector2, range: Range_V2) -> bool
+AABB_is_within :: inline (position: Vector2, range: AABB) -> bool
 {
     return (position.x >= range.min.x) && (position.x <= range.max.x) &&
            (position.y >= range.min.y) && (position.y <= range.max.y);

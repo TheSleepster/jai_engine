@@ -461,7 +461,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
             if entity.flags & xx IS_VALID
             {
                 // I am a bad person.
-                entity.bounding_box = range_v2_create(entity.position, entity.position + entity.render_size);
+                entity.bounding_box = AABB_create(entity.position, entity.position + entity.render_size);
             }
         }
     }
@@ -520,7 +520,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
                         {
                             entity.bounding_box.min -= .{4, 2};
                             entity.bounding_box.max -= .{4, 2};
-                            if range_v2_is_within(position_to_place, entity.bounding_box)
+                            if AABB_is_within(position_to_place, entity.bounding_box)
                             {
                                 collision = true;
                             }
@@ -788,6 +788,7 @@ BLACK :: (Vector4).{0, 0, 0, 1};
 
 ORANGE :: #run hex_to_rgba(0xFFAD00FF);
 PURPLE :: #run hex_to_rgba(0xFF00FFFF);
+CYAN   :: #run hex_to_rgba(0x03AB9EFF);
 
 LIGHT_GRAY :: (Vector4).{0.8, 0.8, 0.8, 1.0};
 
