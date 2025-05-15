@@ -2008,14 +2008,6 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             }
             hallway_segments.count = segment_count;
 
-            // - [x] iterate over all generation rooms and all hallways
-            // - [x] go along the length of the hallway and check if the any point of the line is within a rectangle.
-            //       If it is, upgrade that room to that of a lesser room.
-            // - [x] leave only the main and lesser rooms in the generation rooms array.
-            // - [x] clip the hallways so that they start and end outside of rooms using point in rect.
-            // - [ ] after clipping, proceed down the length of the line until the original end point.
-            //       If a room lies in the way, clip the segment and create a new one to continue the journey
-
             // upgrade rooms from NIL to LESSER if appropriate
             for room_idx: 0..generation_rooms.count - 1
             {
@@ -2184,34 +2176,28 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                 world_gen_segment_hallways(hallway, generation_rooms, *new_hallways, segment_count, *new_hallway_counter);
             }
 
-            // validate
-            // {
-            //     for *hallway: hallway_segments
-            //     {
-            //         is_horizontal := hallway.start.y == hallway.end.y;
-            //         start := ifx is_horizontal then hallway.start.x else hallway.start.y;
-            //         end   := ifx is_horizontal then hallway.end.x   else hallway.end.y;
+            //validate
+            {
+                for *hallway: hallway_segments
+                {
+                    length := sqrt(square(hallway.end.x - hallway.start.x) + square(hallway.end.y - hallway.start.y));
+                    if length < HALLWAY_DIST_EPSILON
+                    {
+                        hallway.is_valid = false;
+                    }
+                }
 
-            //         length := end - start;
-            //         if length < HALLWAY_DIST_EPSILON
-            //         {
-            //             hallway.is_valid = false;
-            //         }
-            //     }
+                for *hallway: new_hallways
+                {
+                    is_horizontal := hallway.start.y == hallway.end.y;
 
-            //     for *hallway: new_hallways
-            //     {
-            //         is_horizontal := hallway.start.y == hallway.end.y;
-            //         start := ifx is_horizontal then hallway.start.x else hallway.start.y;
-            //         end   := ifx is_horizontal then hallway.end.x   else hallway.end.y;
-
-            //         length := end - start;
-            //         if length < HALLWAY_DIST_EPSILON
-            //         {
-            //             hallway.is_valid = false;
-            //         }
-            //     }
-            // }
+                    length := sqrt(square(hallway.end.x - hallway.start.x) + square(hallway.end.y - hallway.start.y));
+                    if length < HALLWAY_DIST_EPSILON
+                    {
+                        hallway.is_valid = false;
+                    }
+                }
+            }
 
             // Copy valid segments to final set
             to_remove: u32;
@@ -2260,38 +2246,11 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
             // TODO(Sleepster):  
                 - [x] Modify the segments so that they are able to store the rooms that they are connecting
                 - [x] Cull the hallways so that the grid cells that their segments travel through are instead left to the room they intersect with, not the hallway
-                - [x] Turn the hallways into their own generation rooms 
+                - [ ] Turn the hallways into their own generation rooms 
                 - [ ] add the hallways to the generation room list with a random size from a table of widths (3, 5, 7, 9, 11)
                 - [ ] (stretch goal 1) have the rooms feed through the WFC algorithm
                 - [ ] (stretch goal 2) think of a way to make the rooms have precollapsed cells based on their neighboring rooms
             */
-
-            //Print the grid
-            // #no_reset printed: bool;
-            // if !printed
-            // {
-            //     for y: 0..dungeon_grid_height - 1
-            //     {
-            //         for x: 0..dungeon_grid_width - 1
-            //         {
-            //             cell := dungeon_grid[x][y];
-            //             if cell.debug_hallway
-            //             {
-            //                 print("%", 2);
-            //             }
-            //             else if cell.occupied
-            //             {
-            //                 print("%", 1);
-            //             }
-            //             else
-            //             {
-            //                 print("%", 0);
-            //             }
-            //         }
-            //         print("\n");
-            //     }
-            //     printed = true;
-            // }
 
             added = true;
         }
