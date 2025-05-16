@@ -2283,11 +2283,11 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                 dy := hallway.end.y - hallway.start.y;
                 length := sqrt(square(dx) + square(dy));
 
-                hallway_width := 4.0;
+                hallway_width := 5.0;
 
-                new_room.size = ifx abs(dx) >= abs(dy)
-                then (Vector2).{length, hallway_width}
-                else (Vector2).{hallway_width, length};
+                new_room.size = ifx abs(dx) >= abs(dy) then
+                                (Vector2).{length, hallway_width} else
+                                (Vector2).{hallway_width, length};
 
                 if dx < 0 || dy < 0
                 {
@@ -2353,7 +2353,7 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
                 - [x] Modify the segments so that they are able to store the rooms that they are connecting
                 - [x] Cull the hallways so that the grid cells that their segments travel through are instead left to the room they intersect with, not the hallway
                 - [x] Turn the hallways into their own generation rooms 
-                - [ ] add the hallways to the generation room list with a random size from a table of widths (3, 5, 7, 9, 11)
+                - [x] add the hallways to the generation room list with a random size from a table of widths (3, 5, 7, 9, 11)
                 - [ ] (stretch goal 1) have the rooms feed through the WFC algorithm
                 - [ ] (stretch goal 2) think of a way to make the rooms have precollapsed cells based on their neighboring rooms
             */
