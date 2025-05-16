@@ -35,6 +35,34 @@ slp_create_semaphore :: inline (initial_thread_count: s32, max_thread_count: s32
     return semaphore;
 }
 
+slp_release_semaphore :: inline (semaphore: *void)
+{
+    W.CloseHandle(semaphore);
+}
+
+slp_thread_wait :: inline (semaphore: *void, duration_ms: u32)
+{
+    if duration_ms == 0 duration_ms = W.INFINITE;
+    W.WaitForSingleObject(semaphore, W.INFINITE);
+}
+
+slp_thread_start :: (semaphore: *void, to_release: s32) -> s32
+{
+    threads_released: s32;
+    W_success: W.BOOL;
+
+    W_success = W.ReleaseSemaphore(semaphore, to_release, *threads_released);
+    if W_success == 0
+    {
+        log("[ERROR]: Failure to release '%' threads on the Windows Semaphore...\n", to_release);
+        assert(false);
+
+        threads_released = 0;
+    }
+
+    return threads_released;
+}
+
 slp_create_thread :: inline (user_data     : *void,
                              thread_proc   : (data: *void) -> s32 #c_call,
                              stack_size    :  s64,
@@ -75,25 +103,3 @@ slp_close_thread_handle :: (thread_data: SLP_Thread) -> bool
     return true;
 }
 
-slp_thread_wait :: inline (semaphore: *void, duration: u32)
-{
-    if duration == 0 duration = W.INFINITE;
-    W.WaitForSingleObject(semaphore, W.INFINITE);
-}
-
-slp_release_semaphore :: (semaphore: *void, to_release: s32) -> s32
-{
-    threads_released: s32;
-    W_success: W.BOOL;
-
-    W_success = W.ReleaseSemaphore(semaphore, to_release, *threads_released);
-    if W_success == 0
-    {
-        log("[ERROR]: Failure to release '%' threads on the Windows Semaphore...\n", to_release);
-        assert(false);
-
-        threads_released = 0;
-    }
-
-    return threads_released;
-}
