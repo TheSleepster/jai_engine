@@ -19,15 +19,17 @@ slp_get_cpu_count :: inline () -> s64
     return system_info.dwNumberOfProcessors;
 }
 
-slp_create_semaphore :: inline (initial_thread_count: s32, max_thread_count: s32, semaphore_name: string) -> *void
+slp_create_semaphore :: inline (initial_thread_count: s32, max_thread_count: s32, semaphore_name: string = "") -> *void
 {
-    assert(initial_thread_count >= max_thread_count);
+    assert(initial_thread_count <= max_thread_count);
 
     semaphore := W.CreateSemaphoreA(null, initial_thread_count, max_thread_count, temp_c_string(semaphore_name));
     if semaphore == null
     {
         log("[ERROR]: Failed to acquire the Windows platform Semaphore Object...\n");
-        return null;
+        assert(false);
+
+        semaphore = null;
     }
     
     return semaphore;
@@ -52,7 +54,9 @@ slp_create_thread :: inline (user_data     : *void,
     else
     {
         log("[ERROR]: CreateThread (Windows) failed...\n");
-        return .{};
+        assert(false);
+
+        result = .{};
     }
 
     return result;
@@ -64,7 +68,32 @@ slp_close_thread_handle :: (thread_data: SLP_Thread) -> bool
     if result == 0
     {
         log("[ERROR]: Failed to close thread handle...\n");
+        assert(false);
+
         return false;
     }
     return true;
+}
+
+slp_thread_wait :: inline (semaphore: *void, duration: u32)
+{
+    if duration == 0 duration = W.INFINITE;
+    W.WaitForSingleObject(semaphore, W.INFINITE);
+}
+
+slp_release_semaphore :: (semaphore: *void, to_release: s32) -> s32
+{
+    threads_released: s32;
+    W_success: W.BOOL;
+
+    W_success = W.ReleaseSemaphore(semaphore, to_release, *threads_released);
+    if W_success == 0
+    {
+        log("[ERROR]: Failure to release '%' threads on the Windows Semaphore...\n", to_release);
+        assert(false);
+
+        threads_released = 0;
+    }
+
+    return threads_released;
 }

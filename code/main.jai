@@ -155,11 +155,15 @@ reset_frame_data :: (transient_state: *Transient_State, draw_frame: *Draw_Frame_
 
 test_thread_proc :: (data: *void) -> s32 #c_call
 {
-push_context
-{
-    print("Hello, Thread!\n");
-    return 0;
-}
+    push_context
+    {
+        while true
+        {
+            print("Hello, Thread...\n");
+            slp_thread_wait(data, 0);
+        }
+        return 0;
+    }
 }
 
 main :: ()
@@ -230,11 +234,13 @@ main :: ()
             // THREADING INIT
             {
                 system_thread_count := slp_get_cpu_count();
+                semaphore := slp_create_semaphore(0, xx system_thread_count);
+                
                 if system_thread_count != -1
                 {
                     for 0..system_thread_count - 1
                     {
-                        thread_info := slp_create_thread(null, test_thread_proc, 0);
+                        thread_info := slp_create_thread(semaphore, test_thread_proc, 0);
                     }
                 }
             }
