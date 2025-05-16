@@ -1,23 +1,23 @@
 P :: #import "POSIX";
 
-platform_allocate_memory :: inline (size: u64) -> *void
+slp_allocate_memory :: inline (size: u64) -> *void
 {
     data := P.mmap(null, size, P.PROT_READ|P.PROT_WRITE, P.MAP_PRIVATE|P.MAP_ANONYMOUS, -1, 0);
     //log("[INFO]: mmap called with a size of: %mb\n", cast(float32)(size / 1048576.0));
     return data;
 }
 
-platform_deallocate_memory :: inline (data: *void, size: u64)
+slp_deallocate_memory :: inline (data: *void, size: u64)
 {
     P.munmap(data, size);
 }
 
-platform_get_cpu_count :: inline () -> s64 
+slp_get_cpu_count :: inline () -> s64 
 {
     return P.sysconf(P._SC_NPROCESSORS_ONLN);
 }
 
-platform_create_semaphore :: ()
+slp_create_semaphore :: ()
 {
     semaphore: P.sem_t;
     result := P.sem_init(*semaphore, 0, 0);
@@ -27,7 +27,7 @@ platform_create_semaphore :: ()
     }
 }
 
-platform_create_thread :: () -> Platform_Thread_Data
+slp_create_thread :: () -> Platform_Thread_Data
 {
     // thread_info: P.pthread_t;
     // P.pthread_create(*thread_info, );

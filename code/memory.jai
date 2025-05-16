@@ -106,7 +106,7 @@ push_size :: (arena: *Memory_Arena, size_init: s64, alignment: u32 = 4) -> *void
         new_block_size := ifx size > (arena.minimum_block_size + size_of(Memory_Arena_Footer)) then size else arena.minimum_block_size; 
 
         arena.capacity     = new_block_size - size_of(Memory_Arena_Footer);
-        arena.base         = platform_allocate_memory(new_block_size);
+        arena.base         = slp_allocate_memory(new_block_size);
         arena.used         = 0;
         arena.block_count += 1;
 
@@ -158,7 +158,7 @@ free_last_block :: inline (arena: *Memory_Arena)
     arena.used         = memory_footer.last_used;
     arena.capacity     = memory_footer.last_capacity;
 
-    platform_deallocate_memory(free, old_capacity);
+    slp_deallocate_memory(free, old_capacity);
     arena.block_count -= 1;
 }
 

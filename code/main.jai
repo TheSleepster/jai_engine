@@ -153,6 +153,15 @@ reset_frame_data :: (transient_state: *Transient_State, draw_frame: *Draw_Frame_
     reset_temporary_storage();
 }
 
+test_thread_proc :: (data: *void) -> s32 #c_call
+{
+push_context
+{
+    print("Hello, Thread!\n");
+    return 0;
+}
+}
+
 main :: ()
 {
     result := SDL_Init(SDL_INIT_EVERYTHING);
@@ -220,12 +229,12 @@ main :: ()
 
             // THREADING INIT
             {
-                system_thread_count := platform_get_cpu_count();
+                system_thread_count := slp_get_cpu_count();
                 if system_thread_count != -1
                 {
                     for 0..system_thread_count - 1
                     {
-                        platform_create_thread();
+                        thread_info := slp_create_thread(null, test_thread_proc, 0);
                     }
                 }
             }

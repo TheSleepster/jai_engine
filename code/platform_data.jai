@@ -7,14 +7,8 @@
     #load "platform_linux.jai";
 }
 
-Platform_Thread_Handler :: struct
+SLP_Thread :: struct
 {
-    system_cpu_count          : s64;
-    created_threads           : s64;
-    platform_semaphore_handle : *void;
-};
-
-Platform_Thread_Data :: struct
-{
-    thread_id: u64;
+    thread_handle : *void;
+    thread_id     : s32;
 };
