@@ -283,9 +283,8 @@ main :: ()
             // THREADING INIT
             {
                 work_queue: SLP_Work_Queue;
-                system_thread_count := slp_get_cpu_count();
-
-                work_queue.semaphore = slp_create_semaphore(0, xx system_thread_count);
+                system_thread_count := (slp_get_cpu_count()) - 1;
+                work_queue.semaphore = slp_create_semaphore(0, xx(system_thread_count));
 
                 for thread_index: 0..system_thread_count - 1
                 {
@@ -324,16 +323,12 @@ main :: ()
                 {
                     device_name   := SDL_GetAudioDeviceName(device_index, 0);
                     print("DEVICE FOUND... %\n", to_string(device_name));
-                    // if(!compare_strings(to_string(device_name), "Speakers (3- I'm Fulla Schiit)"))
-                    // {
-                    //     sound_manager.default_device = to_string(device_name); 
-                    // }
                 }
 
                 sound_manager.device_id = SDL_OpenAudioDevice(sound_manager.default_device.data,
                                                               0,
-                                                              *sound_manager.manager_spec,
-                                                              *sound_manager.device_spec,
+                                                             *sound_manager.manager_spec,
+                                                             *sound_manager.device_spec,
                                                               SDL_AUDIO_ALLOW_ANY_CHANGE);
                 if sound_manager.device_id
                 {
