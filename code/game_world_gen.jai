@@ -1,9 +1,5 @@
 /*
 TODO:
-  - [ ] Create a higher level structure for storing these generated rooms and their layout in the world
-  - [ ] Create a "generator" that can control HOW the rooms are placed and what their sizes should be
-  - [ ] Stop using globals and dynamic arrays in this file.
-  - [ ] Create a method of connecting the rooms together and cull the unconnected rooms
   - [ ] Test the idea of layered room generation. (First generate the floor, then the walls, etc.) 
   - [ ] Fix the problem with some rooms just simply not being connected;
   - [ ] Add a field called "tile_types" to the WFC_Modules. 
@@ -27,6 +23,10 @@ DONE:
   - [x] Improve the way we supply rules and options
   - [x] Add the ability to precollapse tiles before generation, "seeding" the generation
   - [x] Implment a function that can place a room of certain dimensions, allow precollapsed tiles during this to "seed" the room
+  - [x] Stop using globals and dynamic arrays in this file.
+  - [x] Create a "generator" that can control HOW the rooms are placed and what their sizes should be
+  - [x] Create a higher level structure for storing these generated rooms and their layout in the world
+  - [x] Create a method of connecting the rooms together and cull the unconnected rooms
 */
 
 ////////////////
