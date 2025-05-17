@@ -1,14 +1,17 @@
 // raddbg 0.9.16 project file
 
+recent_file: path: "C:/Program Files/jai/modules/math/cephes.jai"
+recent_file: path: "C:/Program Files/jai/modules/math/matrix.jai"
 recent_file: path: "../code/main.jai"
 recent_file: path: "../code/platform_windows.jai"
+recent_file: path: "C:/Program Files/jai/modules/basic/print.jai"
+recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/misc/amd64/chkstk.asm"
 recent_file: path: "../code/audio.jai"
 recent_file: path: "C:/Program Files/jai/modules/math/module.jai"
 recent_file: path: "C:/Program Files/jai/modules/runtime_support.jai"
 recent_file: path: "../code/game_world_gen.jai"
 recent_file: path: "../code/game_entry.jai"
 recent_file: path: "../code/util.jai"
-recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/misc/amd64/chkstk.asm"
 recent_file: path: "../code/opengl_renderer.jai"
 recent_file: path: "../code/drawing.jai"
 target:
@@ -16,9 +19,4 @@ target:
   executable: "game_DEBUG.exe"
   working_directory: "../build"
   enabled: 1
-}
-watch_pin:
-{
-  expression: test_thread_proc
-  source_location: "J:/jai_engine/code/main.jai:157:1"
 }

@@ -44,7 +44,6 @@
 TODO:
   - [ ] Rewrite the renderer and shaders to support both texelFetch and texture (support both AA and non-AA textures).
   - [ ] Rendering options for the renderer
-  - [ ] Multithreading API
   - [ ] Revise the asset manager
   - [ ] Add Lighting to the renderer.
   - [ ] Rewrite the drawing API so that it can better support XForms without needing seperate functions
@@ -52,7 +51,6 @@ TODO:
   - [ ] Hotreloading of the game file??? 
   - [ ] Improve hot reloading of the assets???
   - [ ] Break shaders into hot reloadable systems?
-  - [ ] Create "win32_engine.jai" and "linux_engine.jai" for platform dependant systems (networking, memory allocation)
   - [ ] Asset file format on par with that the .WAD file format used in DOOM
   - [ ] Change how textures are thrown into the atlas 
   - [ ] Fix the sound mixer to not explode and die when the framerate drops
@@ -61,16 +59,19 @@ TODO:
   - [ ] Make the renderer follow what the GAME demands, not what the renderer independantly decides to do (clear the screen, draw now, etc.)
   - [ ] Make the drawing API ACTUALLY allow rotations. Right now it's like a "pass the rotation but we won't do anything with it lol" thing
   - [ ] Allow the drawing API to draw simple lines. Idk why this HAS to be here.
+  - [ ] Platform indepedant networking API, jai's module isn't too great me thinks. 
   - [ ] Allow textures to be evicted from both memory and the texture atlas. 
         We can do this by adding a bitmap to the atlas and storing in the texture itself the beginning and end 
         pointers into the texture atlas' data buffer.
 
 BACKBURNER:
-  - [ ] Platform indepedant networking API, jai's module isn't too great me thinks. 
+    // NOTE(Sleepster): mostly looking at Vulkan, not D3D11. However, Vulkan bindings for Jai don't exist it seems
   - [ ] Look for other rendering options beyond that of OpenGL (most likely D3D11, but that defeats the point of ever using SDL...)
 
 DONE:
   - [x] Fix the asset loader image path so that images are only loaded when needed (search the hash before loading).
+  - [x] Create "win32_engine.jai" and "linux_engine.jai" for platform dependant systems (memory allocation)
+  - [x] Multithreading API
 */
 
 DEBUG :: 0;
@@ -131,6 +132,12 @@ Time_Data :: struct
     performance_counter_frequency : u64;
 };
 
+Test_Thread_Data :: struct
+{
+    thread_id     : s32;
+    thread_string : string;
+};
+
 reset_frame_data :: (transient_state: *Transient_State, draw_frame: *Draw_Frame_Data, window_data: *Window_Data)
 {
     using draw_frame;
@@ -154,21 +161,58 @@ reset_frame_data :: (transient_state: *Transient_State, draw_frame: *Draw_Frame_
     reset_temporary_storage();
 }
 
+do_next_work_queue_entry :: (queue: *SLP_Work_Queue) -> bool 
+{
+    should_sleep: bool;
+    
+    entry_to_read      : u64 = queue.entries_completed;
+    next_entry_to_read := (entry_to_read + 1) % queue.entries.count;
+
+    success, next_work_index := interlocked_compare_exchange(*queue.entries_completed,
+                                                              entry_to_read,
+                                                              next_entry_to_read);
+    if success && next_work_index == entry_to_read 
+    {
+        entry := *queue.entries[next_work_index];
+        if entry.is_valid
+        {
+            interlocked_increment(*queue.entries_completed);
+
+            entry.is_valid = false;
+            entry.callback(entry.user_data);
+        }
+    }
+    else
+    {
+        should_sleep = true;
+    }
+
+    return should_sleep;
+}
+
 test_thread_proc :: (data: *void) -> s32 #c_call
 {
     push_context
     {
+        queue := cast(*SLP_Work_Queue)data;
         while true
         {
-            print("Hello, Thread...\n");
-            slp_thread_wait(data, 0);
+            if do_next_work_queue_entry(queue)
+            {
+                slp_thread_wait(queue.semaphore, 0);
+            }
         }
         return 0;
     }
 }
 
-test_job_callback :: (user_data: *void)
+test_work_callback :: (user_data: *void)
 {
+    work_data := cast(*Test_Thread_Data)user_data;
+
+    print("[INFO]: %\n", work_data.thread_string);
+    print("[INFO] job index is: %\n", work_data.thread_id);
+    print("\n");
 }
 
 main :: ()
@@ -245,15 +289,19 @@ main :: ()
 
                 for thread_index: 0..system_thread_count - 1
                 {
-                    new_job: SLP_Work_Queue_Entry;
-                    slp_add_work_queue_entry(*work_queue, test_job_callback, null);
+                    string2 := "This is a simple test of our callback job queue";
+                    
+                    test_thread_data: *Test_Thread_Data = New(Test_Thread_Data);
+                    test_thread_data.thread_id     = xx thread_index;
+                    test_thread_data.thread_string = string2;
+                    slp_add_work_queue_entry(*work_queue, test_work_callback, test_thread_data);
                 }
                 
                 if system_thread_count != -1
                 {
                     for 0..system_thread_count - 1
                     {
-                        thread_info := slp_create_thread(work_queue.semaphore, test_thread_proc, 0);
+                        thread_info := slp_create_thread(*work_queue, test_thread_proc, 0);
                     }
                 }
             }
