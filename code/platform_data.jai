@@ -35,10 +35,13 @@ SLP_Work_Queue_Entry :: struct
 
 SLP_Work_Queue :: struct
 {
-    semaphore         : *void;
-    entries_completed :  u64;
-    total_entries     :  u64;
-    entries           : [256]SLP_Work_Queue_Entry;
+    semaphore           : *void;
+    threads_awake       :  s32;
+    system_thread_count :  s32;
+    
+    entries_completed   :  u64;
+    total_entries       :  u64;
+    entries             : [256]SLP_Work_Queue_Entry;
 };
 
 slp_add_work_queue_entry :: (queue: *SLP_Work_Queue, callback: (user_data: *void), user_data: *void)
@@ -49,7 +52,11 @@ slp_add_work_queue_entry :: (queue: *SLP_Work_Queue, callback: (user_data: *void
     new_entry.is_valid  = true;
 
     interlocked_increment(*queue.total_entries);
-    slp_thread_start(queue.semaphore, 1);
+    if queue.threads_awake < queue.system_thread_count
+    {
+        slp_thread_start(queue.semaphore, 1);
+        queue.threads_awake += 1;
+    }
 }
 
 slp_reset_work_queue :: (queue: *SLP_Work_Queue)

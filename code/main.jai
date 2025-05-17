@@ -166,12 +166,12 @@ do_next_work_queue_entry :: (queue: *SLP_Work_Queue) -> bool
     should_sleep: bool;
     
     entry_to_read      : u64 = queue.entries_completed;
-    next_entry_to_read := (entry_to_read + 1) % queue.entries.count;
+    next_entry_to_read := (entry_to_read + 1) % (queue.entries.count - 1);
 
     success, next_work_index := interlocked_compare_exchange(*queue.entries_completed,
                                                               entry_to_read,
                                                               next_entry_to_read);
-    if success && next_work_index == entry_to_read 
+    if next_work_index == entry_to_read
     {
         entry := *queue.entries[next_work_index];
         if entry.is_valid
@@ -199,6 +199,7 @@ test_thread_proc :: (data: *void) -> s32 #c_call
         {
             if do_next_work_queue_entry(queue)
             {
+                queue.threads_awake -= 1;
                 slp_thread_wait(queue.semaphore, 0);
             }
         }
@@ -283,10 +284,12 @@ main :: ()
             // THREADING INIT
             {
                 work_queue: SLP_Work_Queue;
-                system_thread_count := (slp_get_cpu_count()) - 1;
-                work_queue.semaphore = slp_create_semaphore(0, xx(system_thread_count));
+                system_thread_count           := (slp_get_cpu_count()) - 1;
+                work_queue.semaphore           = slp_create_semaphore(0, xx(system_thread_count));
+                work_queue.system_thread_count = xx system_thread_count;
+                work_queue.threads_awake       = 0;
 
-                for thread_index: 0..system_thread_count - 1
+                for thread_index: 0..work_queue.entries.count - 2
                 {
                     string2 := "This is a simple test of our callback job queue";
                     
