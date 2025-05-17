@@ -351,7 +351,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         // generation_size := (iVector2).{30, 30};
         // generate_enclosed_room(game_state, test_modules, generation_size);
 
-        init_generation(*game_state.world_gen_arena);
+        floorplan = generate_dungeon_floorplan(*game_state.world_gen_arena, .{5, 5}, .{35, 40}, 150.0, 250.0);
 
         map_color1 = hex_to_rgba(0x202e37);
         map_color2 = hex_to_rgba(0x151d28);
@@ -371,47 +371,6 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
         array_add(*input_manager.game_actions, *interact);
         array_add(*input_manager.game_actions, *attack);
 
-        // player := spawn_entity(game_state, Entity_ID.entity_player);
-        // player.position.x = -30;
-        // player.speed      =  0.8;
-
-        // for 0..20 - 1
-        // {
-        //     random_seed(*context.random_state, rdtsc());
-        //     crate := spawn_entity(game_state, Entity_ID.entity_build_crate);
-        //     crate.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
-        //     crate.position = round_to_nearest_tile(crate.position);
-        // }
-
-        // furnace := spawn_entity(game_state, Entity_ID.entity_furnace);
-        // furnace.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
-        // furnace.position = round_to_nearest_tile(furnace.position);
-
-        // for 0..20 - 1
-        // {
-        //     stone_node := spawn_entity(game_state, Entity_ID.entity_stone_node);
-        //     stone_node.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
-        //     stone_node.position = round_to_nearest_tile(stone_node.position);
-        // }
-
-        // for 0..20 - 1
-        // {
-        //     coal_node := spawn_entity(game_state, Entity_ID.entity_coal_node);
-        //     coal_node.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
-        //     coal_node.position = round_to_nearest_tile(coal_node.position);
-        // }
-
-        // for 0..20 - 1
-        // {
-        //     tree_00 := spawn_entity(game_state, Entity_ID.entity_tree00);
-        //     tree_00.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
-        //     tree_00.position = round_to_nearest_tile(tree_00.position);
-        // }
-
-        // crafting_station := spawn_entity(game_state, Entity_ID.entity_workbench);
-        // crafting_station.position = .{random_get_within_range(*context.random_state, -100.0, 100.0), random_get_within_range(*context.random_state, -100.0, 100.0)};
-        // crafting_station.position = round_to_nearest_tile(crafting_station.position);
-
         draw_frame.clear_color = .{0.05, 0.05, 0.05, 1.0};
 
         game_state.is_initialized = true;
@@ -424,13 +383,13 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
     WFC_render(*new_chunk, draw_frame);
 
-    finished := simulate_generation(*game_state.world_gen_arena, draw_frame, time);
-    draw_generation(draw_frame);
+    //finished := simulate_generation(*game_state.world_gen_arena, draw_frame, time);
+    draw_generation(draw_frame, *floorplan);
 
     if is_key_pressed(input_manager, xx SDL_SCANCODE_R)
     {
         reset_arena(*game_state.world_gen_arena);
-        init_generation(*game_state.world_gen_arena);
+        floorplan = generate_dungeon_floorplan(*game_state.world_gen_arena, .{5, 5}, .{35, 40}, 150.0, 250.0);
     }
 
     // NOTE(Sleepster): UPDATE PLAYER
@@ -815,3 +774,5 @@ new_chunk: WFC_Gen_Chunk;
 #load "game_aabb.jai";
 #load "game_data.jai";
 #load "game_world_gen.jai";
+
+floorplan: Dungeon_Floorplan_Generator; 
