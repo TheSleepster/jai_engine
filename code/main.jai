@@ -42,28 +42,33 @@
 
 /*
 TODO:
+
+RENDERER:
   - [ ] Rewrite the renderer and shaders to support both texelFetch and texture (support both AA and non-AA textures).
   - [ ] Rendering options for the renderer
-  - [ ] Revise the asset manager
   - [ ] Add Lighting to the renderer.
   - [ ] Rewrite the drawing API so that it can better support XForms without needing seperate functions
+  - [ ] Allow the renderer to support pivots (left, center, right, top left, top right)
+  - [ ] Make the renderer follow what the GAME demands, not what the renderer independantly decides to do (clear the screen, draw now, etc.)
+  - [ ] Make the drawing API ACTUALLY allow rotations. Right now it's like a "pass the rotation but we won't do anything with it lol" thing
+  - [ ] Allow the drawing API to draw simple lines. Idk why this HAS to be here.
+
+ASSET MANAGER:
+  - [ ] Revise the asset manager
   - [ ] Fix the dynamic font loader so that it actually works as intended and doesn't crash when we run out of atlas space
   - [ ] Hotreloading of the game file??? 
   - [ ] Improve hot reloading of the assets???
   - [ ] Break shaders into hot reloadable systems?
   - [ ] Asset file format on par with that the .WAD file format used in DOOM
   - [ ] Change how textures are thrown into the atlas 
-  - [ ] Fix the sound mixer to not explode and die when the framerate drops
-  - [ ] Fix game_action_* api so that you can do things like so: game_action_is_pressed(game_state.input_manager, .INTERACT);
-  - [ ] Allow the renderer to support pivots (left, center, right, top left, top right)
-  - [ ] Make the renderer follow what the GAME demands, not what the renderer independantly decides to do (clear the screen, draw now, etc.)
-  - [ ] Make the drawing API ACTUALLY allow rotations. Right now it's like a "pass the rotation but we won't do anything with it lol" thing
-  - [ ] Allow the drawing API to draw simple lines. Idk why this HAS to be here.
-  - [ ] Platform indepedant networking API, jai's module isn't too great me thinks. 
-  - [ ] Radix sort might be bugged
   - [ ] Allow textures to be evicted from both memory and the texture atlas. 
         We can do this by adding a bitmap to the atlas and storing in the texture itself the beginning and end 
         pointers into the texture atlas' data buffer.
+
+FIXES:
+  - [ ] Radix sort might be bugged
+  - [ ] Fix the sound mixer to not explode and die when the framerate drops
+  - [ ] Platform indepedant networking API, jai's module isn't too great me thinks. 
 
 BACKBURNER:
     // NOTE(Sleepster): mostly looking at Vulkan, not D3D11. However, Vulkan bindings for Jai don't exist it seems
@@ -73,6 +78,7 @@ DONE:
   - [x] Fix the asset loader image path so that images are only loaded when needed (search the hash before loading).
   - [x] Create "win32_engine.jai" and "linux_engine.jai" for platform dependant systems (memory allocation)
   - [x] Multithreading API
+  - [x] Fix game_action_* api so that you can do things like so: game_action_is_pressed(game_state.input_manager, .INTERACT);
 */
 
 DEBUG :: 0;
