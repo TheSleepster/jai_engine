@@ -14,6 +14,7 @@
 #import "Random";
 #import "Bit_Operations";
 #import "Machine_X64";
+#import "Atomics";
 
 // Bitmap loading and saving:
 #import "stb_image";
@@ -166,6 +167,10 @@ test_thread_proc :: (data: *void) -> s32 #c_call
     }
 }
 
+test_job_callback :: (user_data: *void)
+{
+}
+
 main :: ()
 {
     result := SDL_Init(SDL_INIT_EVERYTHING);
@@ -233,14 +238,22 @@ main :: ()
 
             // THREADING INIT
             {
+                work_queue: SLP_Work_Queue;
                 system_thread_count := slp_get_cpu_count();
-                semaphore := slp_create_semaphore(0, xx system_thread_count);
+
+                work_queue.semaphore = slp_create_semaphore(0, xx system_thread_count);
+
+                for thread_index: 0..system_thread_count - 1
+                {
+                    new_job: SLP_Work_Queue_Entry;
+                    slp_add_work_queue_entry(*work_queue, test_job_callback, null);
+                }
                 
                 if system_thread_count != -1
                 {
                     for 0..system_thread_count - 1
                     {
-                        thread_info := slp_create_thread(semaphore, test_thread_proc, 0);
+                        thread_info := slp_create_thread(work_queue.semaphore, test_thread_proc, 0);
                     }
                 }
             }
