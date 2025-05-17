@@ -187,6 +187,8 @@ WFC_Module :: struct
 
 WFC_Gen_Chunk :: struct
 {
+    // NOTE(Sleepster): position is from the bottom left 
+    world_offset    :      Vector2;
     chunk_size      :     iVector2;
     chunk_modules   :   []WFC_Module;
     generation_grid : [][]WFC_Cell;
@@ -196,9 +198,10 @@ WFC_Gen_Chunk :: struct
 };
 
 // TODO(Sleepster): This might be painfully slow 
-WFC_new_chunk :: (arena: *Memory_Arena, chunk_size: iVector2, modules: []WFC_Module) -> WFC_Gen_Chunk
+WFC_new_chunk :: (arena: *Memory_Arena, world_offset: Vector2, chunk_size: iVector2, modules: []WFC_Module) -> WFC_Gen_Chunk
 {
     new_chunk: WFC_Gen_Chunk;
+    new_chunk.world_offset  = world_offset;
     new_chunk.chunk_size    = chunk_size;
     new_chunk.chunk_modules = modules;
 
@@ -1097,9 +1100,9 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
 // ROOM GENERATION
 ////////////////////
 
-generate_enclosed_room :: (game_state: *Game_State, modules: []WFC_Module, generation_size: iVector2)
+generate_enclosed_room :: (game_state: *Game_State, world_offset: Vector2, modules: []WFC_Module, generation_size: iVector2)
 {
-    new_chunk = WFC_new_chunk(*game_state.game_arena, generation_size, modules);
+    new_chunk = WFC_new_chunk(*game_state.game_arena, world_offset, generation_size, modules);
 
     // WALL LEFT
     WFC_collapse_single_cell(*new_chunk, 0, .{0, xx((generation_size.y * 0.5) - 1.0)});
@@ -1647,7 +1650,7 @@ world_gen_segment_hallways :: (hallway           : *Generation_Hallway,
     }
 }
 
-process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
+simulate_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time: Time_Data) -> bool
 {
     finished := update_generation(draw_frame, time);
     if finished && !added
@@ -2362,6 +2365,14 @@ process_generation :: (arena: *Memory_Arena, draw_frame: *Draw_Frame_Data, time:
         }
     }
     return finished;
+}
+
+Dungeon_Floorplan_Generator :: struct
+{
+};
+
+generate_dungeon_floorplan :: (arena: *Memory_Arena) -> []Generation_Room
+{
 }
 
 draw_generation :: (draw_frame: *Draw_Frame_Data)

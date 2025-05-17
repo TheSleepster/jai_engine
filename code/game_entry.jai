@@ -424,7 +424,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
 
     WFC_render(*new_chunk, draw_frame);
 
-    finished := process_generation(*game_state.world_gen_arena, draw_frame, time);
+    finished := simulate_generation(*game_state.world_gen_arena, draw_frame, time);
     draw_generation(draw_frame);
 
     if is_key_pressed(input_manager, xx SDL_SCANCODE_R)

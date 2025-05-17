@@ -190,7 +190,7 @@ do_next_work_queue_entry :: (queue: *SLP_Work_Queue) -> bool
     return should_sleep;
 }
 
-test_thread_proc :: (data: *void) -> s32 #c_call
+thread_proc :: (data: *void) -> s32 #c_call
 {
     push_context
     {
@@ -303,7 +303,7 @@ main :: ()
                 {
                     for 0..system_thread_count - 1
                     {
-                        thread_info := slp_create_thread(*work_queue, test_thread_proc, 0);
+                        thread_info := slp_create_thread(*work_queue, thread_proc, 0);
                     }
                 }
             }
