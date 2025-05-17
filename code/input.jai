@@ -373,8 +373,9 @@ game_action_add_action :: inline (input_manager: *Input_Manager, key_index: s32,
 }
 
 // TODO(Sleepster): Instead of passing a pointer to the game action, why not just use the game_action enum index??? 
-game_action_is_pressed :: inline (input_manager: *Input_Manager, action: *Game_Action) -> bool
+game_action_is_pressed :: inline (input_manager: *Input_Manager, action_index: game_action_index) -> bool
 {
+    action := input_manager.game_actions[action_index];
     is_pressed: bool;
     
     is_pressed = is_key_pressed(input_manager, action.action_key);
@@ -384,8 +385,10 @@ game_action_is_pressed :: inline (input_manager: *Input_Manager, action: *Game_A
     return is_pressed;
 }
 
-game_action_is_down :: inline (input_manager: *Input_Manager, action: *Game_Action) -> bool
+game_action_is_down :: inline (input_manager: *Input_Manager, action_index: game_action_index) -> bool
 {
+    action := input_manager.game_actions[action_index];
+    
     is_down: bool;
     
     is_down = is_key_down(input_manager, action.action_key);
@@ -395,8 +398,9 @@ game_action_is_down :: inline (input_manager: *Input_Manager, action: *Game_Acti
     return is_down;
 }
 
-game_action_is_released :: inline (input_manager: *Input_Manager, action: *Game_Action) -> bool
+game_action_is_released :: inline (input_manager: *Input_Manager, action_index: game_action_index) -> bool
 {
+    action := input_manager.game_actions[action_index];
     is_released: bool;
     
     is_released = is_key_released(input_manager, action.action_key);
@@ -406,20 +410,23 @@ game_action_is_released :: inline (input_manager: *Input_Manager, action: *Game_
     return is_released;
 }
 
-game_action_consume_is_pressed :: inline (input_manager: *Input_Manager, action: *Game_Action)
+game_action_consume_is_pressed :: inline (input_manager: *Input_Manager, action_index: game_action_index)
 {
+    action := input_manager.game_actions[action_index];
     consume_button_press(input_manager, action.action_button);
     consume_key_press(input_manager, action.action_key);
 }
 
-game_action_consume_is_down :: inline (input_manager: *Input_Manager, action: *Game_Action)
+game_action_consume_is_down :: inline (input_manager: *Input_Manager, action_index: game_action_index)
 {
+    action := input_manager.game_actions[action_index];
     consume_button_down(input_manager, action.action_button);
     consume_key_down(input_manager, action.action_key);
 }
 
-game_action_consume_is_released :: inline (input_manager: *Input_Manager, action: *Game_Action)
+game_action_consume_is_released :: inline (input_manager: *Input_Manager, action_index: game_action_index)
 {
+    action := input_manager.game_actions[action_index];
     consume_button_released(input_manager, action.action_button);
     consume_key_released(input_manager, action.action_key);
 }

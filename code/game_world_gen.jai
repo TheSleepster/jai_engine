@@ -1282,7 +1282,8 @@ is_point_within_circumcircle :: (point: Vector2, triangle: *Delaunay_Triangle) -
     denominator := 2.0 * (A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y));
 
     // NOTE(Sleepster): No circumcircle exists, so point can't be inside
-    if denominator == 0.0 {
+    if denominator == 0.0
+    {
         return result;
     }
 
@@ -2349,9 +2350,6 @@ draw_generation :: (draw_frame: *Draw_Frame_Data, floorplan: *Dungeon_Floorplan_
 
 #scope_file
 tile_size: iVector2 = .{16, 16};
-
 update_radius := 20.0;
 epsilon       := 0.1;
-
 HALLWAY_DIST_EPSILON :: 0.04;
-added: bool;

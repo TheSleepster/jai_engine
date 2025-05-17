@@ -47,19 +47,19 @@ check_movement_actions :: (game_state: *Game_State, time: Time_Data)
     game_state.input_axis = .{0, 0};
     
     using game_state;
-    if game_action_is_down(input_manager, *input_manager.game_actions[MOVE_UP])
+    if game_action_is_down(input_manager, .MOVE_UP)
     {
         game_state.input_axis.y =  1;
     }
-    if game_action_is_down(input_manager, *input_manager.game_actions[MOVE_DOWN])
+    if game_action_is_down(input_manager, .MOVE_DOWN)
     {
         game_state.input_axis.x = -1;
     }
-    if game_action_is_down(input_manager, *input_manager.game_actions[MOVE_LEFT])
+    if game_action_is_down(input_manager, .MOVE_LEFT)
     {
         game_state.input_axis.y = -1;
     }
-    if game_action_is_down(input_manager, *input_manager.game_actions[MOVE_RIGHT])
+    if game_action_is_down(input_manager, .MOVE_RIGHT)
     {
         game_state.input_axis.x =  1;
     }
@@ -458,7 +458,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
             }
 
             // NOTE(Sleepster): PLAYER GRAB
-            if game_action_is_pressed(game_state.input_manager, *input_manager.game_actions[INTERACT])
+            if game_action_is_pressed(game_state.input_manager, .INTERACT)
             {
                 if !player.attached_entity
                 {
@@ -555,7 +555,7 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
             using world_frame;
             if active_hovered_entity.flags & xx CAN_BE_DAMAGED
             {
-                if game_action_is_pressed(input_manager, *input_manager.game_actions[ATTACK])
+                if game_action_is_pressed(input_manager, .ATTACK)
                 {
                     active_hovered_entity.current_health -= 1;
                 }

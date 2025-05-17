@@ -60,6 +60,7 @@ TODO:
   - [ ] Make the drawing API ACTUALLY allow rotations. Right now it's like a "pass the rotation but we won't do anything with it lol" thing
   - [ ] Allow the drawing API to draw simple lines. Idk why this HAS to be here.
   - [ ] Platform indepedant networking API, jai's module isn't too great me thinks. 
+  - [ ] Radix sort might be bugged
   - [ ] Allow textures to be evicted from both memory and the texture atlas. 
         We can do this by adding a bitmap to the atlas and storing in the texture itself the beginning and end 
         pointers into the texture atlas' data buffer.
