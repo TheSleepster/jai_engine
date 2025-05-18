@@ -1,4 +1,7 @@
 W :: #import "Windows";
+#load "../misc/deps/generated_windows_networking.jai";
+
+Socket :: SOCKET;
 
 slp_allocate_memory :: inline (size: u64) -> *void
 {
@@ -102,4 +105,10 @@ slp_close_thread_handle :: (thread_data: SLP_Thread) -> bool
     }
     return true;
 }
+
+slp_socket_get_last_error :: inline () -> OS_Error_Code
+{
+    return WSA_GetLastError();
+}
+
 

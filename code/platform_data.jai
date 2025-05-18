@@ -19,6 +19,9 @@ interlocked_and              :: atomic_and;
 interlocked_or               :: atomic_or;
 interlocked_xor              :: atomic_xor;
 
+////////////////////
+// THREADING STUFF
+////////////////////
 
 SLP_Thread :: struct
 {
@@ -69,4 +72,30 @@ slp_reset_work_queue :: (queue: *SLP_Work_Queue)
     }
 }
 
+///////////////
+// NETWORKING
+///////////////
 
+Socket_Protocol :: enum
+{
+    DGRAM;
+    STREAM;
+    SEQPACKET;
+};
+
+Socket_IP_Type :: enum
+{
+    IPv4;
+    IPv6;
+};
+
+SLP_Socket :: struct
+{
+    handle           : Socket;
+    ip_type          : Socket_IP_Type;
+    protocol         : Socket_Protocol; 
+    port             : u16;
+
+    is_bound_to_addr : bool;
+    is_non_blocking  : bool;
+};

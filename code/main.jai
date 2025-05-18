@@ -49,7 +49,7 @@ RENDERER:
   - [ ] Add Lighting to the renderer.
   - [ ] Rewrite the drawing API so that it can better support XForms without needing seperate functions
   - [ ] Allow the renderer to support pivots (left, center, right, top left, top right)
-  - [ ] Make the renderer follow what the GAME demands, not what the renderer independantly decides to do (clear the screen, draw now, etc.)
+  - [ ] Make the renderer follow what the GAME demands, not what the renderer independently decides to do (clear the screen, draw now, etc.)
   - [ ] Make the drawing API ACTUALLY allow rotations. Right now it's like a "pass the rotation but we won't do anything with it lol" thing
   - [ ] Allow the drawing API to draw simple lines. Idk why this HAS to be here.
 
@@ -68,7 +68,7 @@ ASSET MANAGER:
 FIXES:
   - [ ] Radix sort might be bugged
   - [ ] Fix the sound mixer to not explode and die when the framerate drops
-  - [ ] Platform indepedant networking API, jai's module isn't too great me thinks. 
+  - [ ] Platform indepedent networking API, jai's module isn't too great me thinks. 
 
 BACKBURNER:
     // NOTE(Sleepster): mostly looking at Vulkan, not D3D11. However, Vulkan bindings for Jai don't exist it seems
@@ -105,6 +105,9 @@ null_font_page : Font_Page           = .{};
 null_sprite    : Atlas_Sprite        = .{parent_texture = *null_texture, atlas_texture = *null_texture};
 null_shader    : Shader_Data         = .{shader_type = xx Shader_Type.UNDEFINED}; 
 null_vector2   : Vector2             = .{};
+
+is_server: bool;
+is_client: bool;
 
 Window_Data :: struct
 {
@@ -223,8 +226,85 @@ test_work_callback :: (user_data: *void)
     print("\n");
 }
 
+create_server :: ()
+{
+    socket := slp_socket_create(.IPv4, .DGRAM);
+    bound  := slp_socket_bind(*socket, 30000);
+    if bound
+    {
+        buffer_message := "Hello, Client!\n";
+        address        := "127.0.0.1";
+
+        bytes_read: s64;
+        buffer: string;
+
+        log("[INFO]: Server Started...\n");
+        while bytes_read == 0
+        {
+            buffer, bytes_read = slp_socket_read_from(*socket);
+        }
+
+        if bytes_read > 0
+        {
+            log("[INFO]: data recieved: %\n", buffer);
+        }
+        else
+        {
+            log("[ERROR]: Failed to recieve data...\n");
+        }
+    }
+    else
+    {
+        error := slp_socket_get_last_error();
+        log("[ERROR]: Failed to bind the socket...\n");
+        log("Error code is: %\n", error);
+    }
+}
+
+create_client :: ()
+{
+    socket := slp_socket_create(.IPv4, .DGRAM);
+    bound  := slp_socket_bind(*socket, 30000);
+    if bound
+    {
+        buffer_message := "Hello, Server!\n";
+        address        := "127.0.0.1";
+
+        log("[INFO]: Client Started...\n");
+        bytes_sent := slp_socket_send_data(*socket, buffer_message, address);
+        if bytes_sent == 0
+        {
+            log("[ERROR]: Failed to send data down the network...\n");
+        }
+    }
+    else
+    {
+        error := slp_socket_get_last_error();
+        log("[ERROR]: Failed to bind the socket...\n");
+        log("Error code is: %\n", error);
+    }
+}
+
 main :: ()
 {
+    args := get_command_line_arguments();
+    if args.count >= 2
+    {
+        server_status := args[1];
+        if server_status == "-Client" || server_status == "-client"
+        {
+            create_client();
+        }
+        else if server_status == "-Server" || server_status == "-server"
+        {
+            create_server();
+        }
+        else
+        {
+            log("[ERROR]: Invalid command line args, please only use: '-client' or '-server'");
+        }
+    }
+    
     result := SDL_Init(SDL_INIT_EVERYTHING);
     if result == 0
     {
