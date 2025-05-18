@@ -106,8 +106,9 @@ null_sprite    : Atlas_Sprite        = .{parent_texture = *null_texture, atlas_t
 null_shader    : Shader_Data         = .{shader_type = xx Shader_Type.UNDEFINED}; 
 null_vector2   : Vector2             = .{};
 
-is_server: bool;
-is_client: bool;
+
+GAME_NETWORK_PORT :: 30000;
+
 
 Window_Data :: struct
 {
@@ -269,7 +270,7 @@ create_client :: ()
     address        := "127.0.0.1";
 
     log("[INFO]: Client Started...\n");
-    bytes_sent := slp_socket_send_data(*socket, buffer_message, address);
+    bytes_sent := slp_socket_send_data(*socket, buffer_message, address, GAME_NETWORK_PORT);
     if bytes_sent == 0
     {
         log("[ERROR]: Failed to send data down the network...\n");

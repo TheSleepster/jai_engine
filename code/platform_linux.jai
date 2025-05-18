@@ -273,7 +273,7 @@ slp_socket_set_nonblocking :: (socket: *SLP_Socket) -> bool
     return result;
 }
 
-slp_socket_send_data :: (socket: *SLP_Socket, buffer: string, address: string) -> s64
+slp_socket_send_data :: (socket: *SLP_Socket, buffer: string, address: string, port: u16) -> s64
 {
     c_address   := temp_c_string(address);
     net_address := inet_addr(c_address);
@@ -281,7 +281,7 @@ slp_socket_send_data :: (socket: *SLP_Socket, buffer: string, address: string) -
     socket_address: sockaddr_in;
     socket_address.sin_family      = AF_INET;
     socket_address.sin_addr.s_addr = net_address;
-    socket_address.sin_port        = htons(30000);
+    socket_address.sin_port        = htons(port);
 
     bytes_sent := sendto(socket.handle,
                          buffer.data,
@@ -292,6 +292,7 @@ slp_socket_send_data :: (socket: *SLP_Socket, buffer: string, address: string) -
     return bytes_sent;
 }
 
+// TODO(Sleepster): get rid of alloc 
 slp_socket_read_from :: (socket: *SLP_Socket) -> string, s64
 {
     buffer: string;

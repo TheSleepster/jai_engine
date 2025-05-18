@@ -7,13 +7,25 @@ System :: #import "System";
 
 Socket :: SOCKET;
 WINSOCK_VERSION: u16 : 0x0202;
+FIONBIO :: #run IOW(#char "f", 126, u32);
+IOW :: (x: u8, y: u8, $T: Type) -> s32 {
+    return (IOC_IN|((cast(s32)size_of(T)&IOCPARM_MASK)<<16)|((cast(u16)x)<<8)|(y));
+}
 
+
+//////////////////////
+// MEMORY ALLOCATION
+//////////////////////
 
 slp_allocate_memory :: inline (size: u64) -> *void
 {
     data := VirtualAlloc(null, xx size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
     return data;
 }
+
+//////////////
+// THREADING
+//////////////
 
 slp_deallocate_memory :: inline (data: *void, size: u64)
 {
@@ -112,6 +124,13 @@ slp_close_thread_handle :: (thread_data: SLP_Thread) -> bool
     return true;
 }
 
+
+///////////////
+// NETWORKING
+///////////////
+
+// NOTE(Sleepster): THIS IS UDP ONLY!!!!!  
+
 slp_socket_get_last_error :: inline () -> OS_Error_Code
 {
     return WSAGetLastError();
@@ -132,25 +151,104 @@ slp_init_socket_system :: () -> bool
 
 slp_socket_create :: (ip_type: Socket_IP_Type, protocol: Socket_Protocol) -> SLP_Socket
 {
-    return .{};
+    result: SLP_Socket;
+    
+    socket_handle := socket(AF_INET, .SOCK_DGRAM, .IPPROTO_UDP);
+    if socket_handle != INVALID_SOCKET
+    {
+        result.handle   = socket_handle;
+        result.ip_type  = ip_type;
+        result.protocol = protocol;
+    }
+    else
+    {
+        log("[ERROR]: Failed to create the UDP socket...");
+    }
+
+    return result;
 }
 
 slp_socket_bind :: (socket: *SLP_Socket, port: u16) -> bool
 {
-    return true;
+    result: bool;
+    if port > 0
+    {
+        port = htons(port);
+    }
+    
+    socket_address: sockaddr_in;
+    socket_address.sin_family           = AF_INET;
+    socket_address.sin_addr.S_un.S_addr = INADDR_ANY;
+    socket_address.sin_port             = port;
+
+    error := bind(socket.handle, cast(*sockaddr)*socket_address, size_of(sockaddr_in));
+    if error != SOCKET_ERROR 
+    {
+        socket.port             = ntohs(port);
+        socket.is_bound_to_addr = true;
+    }
+    else
+    {
+        log("[ERROR]: Failed to bind the socket...\n");
+    }
+
+    result = (error != -1);
+    return result;
 }
 
 slp_socket_set_nonblocking :: (socket: *SLP_Socket) -> bool
 {
-    return true;
+    result: bool;
+
+    should_block: u32 = 1;
+    error := ioctlsocket(socket.handle, FIONBIO, *should_block);
+    if error == 0 
+    {
+        socket.is_non_blocking = true;
+    }
+    else
+    {
+        log("[ERROR]: Failed to set the socket to be nonblocking...\n");
+    }
+
+    result = (error != -1);
+    return result;
 }
 
-slp_socket_send_data :: (socket: *SLP_Socket, buffer: string, address: string) -> s64
+slp_socket_send_data :: (socket: *SLP_Socket, buffer: string, address: string, port: u16) -> s64
 {
-    return 0;
+    c_address   := temp_c_string(address);
+    net_address := inet_addr(c_address);
+    
+    socket_address: sockaddr_in;
+    socket_address.sin_family           = AF_INET;
+    socket_address.sin_addr.S_un.S_addr = net_address;
+    socket_address.sin_port             = htons(port);
+
+    bytes_sent := sendto(socket.handle,
+                         buffer.data,
+                         xx(buffer.count * size_of(u8)),
+                         0,
+                         cast(*sockaddr)*socket_address,
+                         size_of(sockaddr_in));
+    return bytes_sent;
 }
 
+// TODO(Sleepster): get rid of alloc 
 slp_socket_read_from :: (socket: *SLP_Socket) -> string, s64
 {
-    return .{}, 0;
+    buffer: string;
+    buffer.data  = alloc(size_of(u8) * 512);
+    buffer.count = 512;
+
+    from: sockaddr_in;
+    from_size: s32 = size_of(sockaddr_in);
+
+    bytes_read := recvfrom(socket.handle,
+                           buffer.data,
+                           xx(buffer.count * size_of(u8)),
+                           0,
+                           cast(*sockaddr)*from,
+                           *from_size);
+    return buffer, bytes_read;
 }
