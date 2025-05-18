@@ -280,7 +280,7 @@ slp_socket_send_data :: (socket: *SLP_Socket, buffer: string, address: string) -
     
     socket_address: sockaddr_in;
     socket_address.sin_family      = AF_INET;
-    socket_address.sin_addr.s_addr = htonl(net_address);
+    socket_address.sin_addr.s_addr = net_address;
     socket_address.sin_port        = htons(30000);
 
     bytes_sent := sendto(socket.handle,
