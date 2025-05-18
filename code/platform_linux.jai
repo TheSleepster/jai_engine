@@ -242,7 +242,7 @@ slp_socket_bind :: (socket: *SLP_Socket, port: u16) -> bool
     error := bind(socket.handle, cast(*sockaddr)*socket_address, size_of(sockaddr_in));
     if error != -1
     {
-        socket.port             = port;
+        socket.port             = ntohs(port);
         socket.is_bound_to_addr = true;
     }
     else
@@ -280,12 +280,12 @@ slp_socket_send_data :: (socket: *SLP_Socket, buffer: string, address: string) -
     
     socket_address: sockaddr_in;
     socket_address.sin_family      = AF_INET;
-    socket_address.sin_addr.s_addr = net_address;
-    socket_address.sin_port        = socket.port;
+    socket_address.sin_addr.s_addr = htonl(net_address);
+    socket_address.sin_port        = htons(30000);
 
     bytes_sent := sendto(socket.handle,
                          buffer.data,
-                         xx buffer.count,
+                         xx(buffer.count * size_of(u8)),
                          0,
                          cast(*sockaddr)*socket_address,
                          size_of(sockaddr_in));

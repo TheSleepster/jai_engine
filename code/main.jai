@@ -264,24 +264,15 @@ create_server :: ()
 create_client :: ()
 {
     socket := slp_socket_create(.IPv4, .DGRAM);
-    bound  := slp_socket_bind(*socket, 30000);
-    if bound
-    {
-        buffer_message := "Hello, Server!\n";
-        address        := "127.0.0.1";
 
-        log("[INFO]: Client Started...\n");
-        bytes_sent := slp_socket_send_data(*socket, buffer_message, address);
-        if bytes_sent == 0
-        {
-            log("[ERROR]: Failed to send data down the network...\n");
-        }
-    }
-    else
+    buffer_message := "Hello, Server!\n";
+    address        := "127.0.0.1";
+
+    log("[INFO]: Client Started...\n");
+    bytes_sent := slp_socket_send_data(*socket, buffer_message, address);
+    if bytes_sent == 0
     {
-        error := slp_socket_get_last_error();
-        log("[ERROR]: Failed to bind the socket...\n");
-        log("Error code is: %\n", error);
+        log("[ERROR]: Failed to send data down the network...\n");
     }
 }
 
