@@ -202,6 +202,11 @@ slp_socket_get_last_error :: inline () -> OS_Error_Code
     return errno();
 }
 
+slp_init_socket_system :: inline () -> bool
+{
+    return true;
+}
+
 slp_socket_create :: (ip_type: Socket_IP_Type, protocol: Socket_Protocol) -> SLP_Socket
 {
     result: SLP_Socket;

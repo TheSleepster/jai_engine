@@ -287,6 +287,8 @@ create_client :: ()
 
 main :: ()
 {
+    slp_init_socket_system();
+    
     args := get_command_line_arguments();
     if args.count >= 2
     {
