@@ -8,10 +8,6 @@ System :: #import "System";
 Socket :: SOCKET;
 WINSOCK_VERSION: u16 : 0x0202;
 FIONBIO :: #run IOW(#char "f", 126, u32);
-IOW :: (x: u8, y: u8, $T: Type) -> s32 {
-    return (IOC_IN|((cast(s32)size_of(T)&IOCPARM_MASK)<<16)|((cast(u16)x)<<8)|(y));
-}
-
 
 //////////////////////
 // MEMORY ALLOCATION
@@ -130,6 +126,11 @@ slp_close_thread_handle :: (thread_data: SLP_Thread) -> bool
 ///////////////
 
 // NOTE(Sleepster): THIS IS UDP ONLY!!!!!  
+IOW :: (x: u8, y: u8, $T: Type) -> s32
+{
+    return (IOC_IN|((cast(s32)size_of(T)&IOCPARM_MASK)<<16)|((cast(u16)x)<<8)|(y));
+}
+
 
 slp_socket_get_last_error :: inline () -> OS_Error_Code
 {
