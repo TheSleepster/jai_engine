@@ -241,10 +241,10 @@ prepare_string :: (page : *Font_Page, text: string) -> s32
         temp       = unicode_next_character(temp);
     }
     
-    if page.bitmap_modified
+    if page.page_dirty
     {
         update_texture_from_bitmap(*page.bitmap, *page.texture, true, Filter_Type.LINEAR);
-        page.bitmap_modified = false;
+        page.page_dirty = false;
     }
     return result;
 }
@@ -257,7 +257,7 @@ draw_text :: (draw_frame   : *Draw_Frame_Data,
               color        :  Vector4)
 {
     font_page := asset_get_font_at_size(dynamic_font, font_scale);
-    if font_page != null && font_page.is_valid == true
+    if font_page != null
     {
         total_width  : s32 = prepare_string(font_page, text);
         starting_pos := (Vector2).{center_pos.x - (total_width * 0.5), center_pos.y};

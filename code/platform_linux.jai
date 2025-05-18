@@ -277,7 +277,7 @@ slp_socket_send_data :: (socket: *SLP_Socket, buffer: string, address: string, p
 {
     c_address   := temp_c_string(address);
     net_address := inet_addr(c_address);
-    
+   
     socket_address: sockaddr_in;
     socket_address.sin_family      = AF_INET;
     socket_address.sin_addr.s_addr = net_address;

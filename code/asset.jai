@@ -726,17 +726,24 @@ Font_Glyph_Data :: struct
 // TODO(Sleepster): Sometimes It doesn't load the font correctly on demand like it should. Probably a hash collision
 Font_Page :: struct
 {
-    master_font       : *Dynamic_Render_Font;
-    is_valid          : bool;
+    page_full         : bool;
+    page_dirty        : bool;
+    
+    glyph_lookup      : sl_Hash_Table;
     
     texture           : Texture2D;
     bitmap            : Bitmap;
-    bitmap_modified   : bool;
-    
-    glyph_lookup      : sl_Hash_Table;
 
     bitmap_cursor_x   : s32;
     bitmap_cursor_y   : s32;
+
+    parent_varient    : *Font_Varient;
+    next_page         : *Font_Page;
+};
+
+Font_Varient :: struct
+{
+    pixel_size        : s32;
 
     character_height  : int;
     line_spacing      : int;
@@ -749,25 +756,21 @@ Font_Page :: struct
 
     default_unknown_character :  u32;
     utf32_unknown_character   := 0xfffd;
-};
 
-Font_Varient :: struct
-{
-    pixel_size : s32;
-    page_data  : [..]Font_Page;
+    parent_font : *Dynamic_Render_Font;
+    first_page  : *Font_Page;
 };
 
 // TODO(Sleepster): Implement this 
 Dynamic_Render_Font :: struct
 {
+    font_face        :  FT_Face;
     font_name        :  string;
     filepath         :  string;
-    font_face        :  FT_Face;
     raw_font_data    :  string;
 
     asset_arena      : *Memory_Arena;
-
-    pixel_sizes      :  [..]Font_Page;
+    pixel_sizes      :  [..]Font_Varient;
 };
 
 init_asset_font_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void)
@@ -821,7 +824,7 @@ font_find_next_atlas_line :: inline (page: *Font_Page, width: u32, height: u32) 
     if desired_x > bitmap.width
     {
         page.bitmap_cursor_x = 0;
-        page.bitmap_cursor_y += xx page.max_ascender;
+        page.bitmap_cursor_y += xx page.parent_varient.max_ascender;
         return .{0, xx page.bitmap_cursor_y};
     }
     else
@@ -834,7 +837,7 @@ copy_glyph_to_page_bitmap :: (face: FT_Face, glyph: *Font_Glyph_Data)
 {
     if glyph.page.bitmap.data.data == null
     {
-        glyph.page.bitmap = init_bitmap_data(glyph.page.master_font.asset_arena, ENGINE_TEXTURE_WIDTH, ENGINE_TEXTURE_HEIGHT, Bitmap_Formats.FORMAT_RGBA);
+        glyph.page.bitmap = init_bitmap_data(glyph.page.parent_varient.parent_font.asset_arena, ENGINE_TEXTURE_WIDTH, ENGINE_TEXTURE_HEIGHT, Bitmap_Formats.FORMAT_RGBA);
     }
     
     b := face.glyph.bitmap;
@@ -896,46 +899,48 @@ get_utf8_glyph :: (font_page: *Font_Page, char: *u8) -> *Font_Glyph_Data
     }
     else
     {
-        error := FT_Set_Pixel_Sizes(font_page.master_font.font_face, 0, xx font_page.character_height);
+        error := FT_Set_Pixel_Sizes(font_page.parent_varient.parent_font.font_face,
+                                    0,
+                                    xx font_page.parent_varient.character_height);
         //error := FT_Set_Char_Size(font_page.master_font.font_face, xx (font_page.character_height * 64), 0, 360, 0);
         assert(!error);
 
         glyph_index : u32;
         if utf32_char
         {
-            glyph_index = FT_Get_Char_Index(font_page.master_font.font_face, utf32_char);
+            glyph_index = FT_Get_Char_Index(font_page.parent_varient.parent_font.font_face, utf32_char);
             if !glyph_index
             {
                 log_error("UTF32 character '%' cannot be found", utf32_char);
-                glyph_index = font_page.default_unknown_character;
+                glyph_index = font_page.parent_varient.default_unknown_character;
             }
 
             if glyph_index
             {
-                error = FT_Load_Glyph(font_page.master_font.font_face, glyph_index, FT_LOAD_RENDER);
+                error = FT_Load_Glyph(font_page.parent_varient.parent_font.font_face, glyph_index, FT_LOAD_RENDER);
                 assert(!error);
             }
         }
         else
         {
             assert(glyph_index >= 0);
-            error = FT_Load_Glyph(font_page.master_font.font_face, glyph_index, FT_LOAD_RENDER);
+            error = FT_Load_Glyph(font_page.parent_varient.parent_font.font_face, glyph_index, FT_LOAD_RENDER);
             assert(!error);
         }
 
-        data := push_struct(font_page.master_font.asset_arena, Font_Glyph_Data);
+        data := push_struct(font_page.parent_varient.parent_font.asset_arena, Font_Glyph_Data);
         data.glyph_key = glyph_index;
         data.page      = font_page;
 
-        copy_glyph_to_page_bitmap(font_page.master_font.font_face, data);
-        font_page.bitmap_modified = true;
+        copy_glyph_to_page_bitmap(font_page.parent_varient.parent_font.font_face, data);
+        font_page.page_dirty = true;
 
         hash_insert_pair(*font_page.glyph_lookup, copy_string(test), cast(*void)data);
         return data;
     }
 }
 
-asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32) -> *Font_Page
+asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32) -> *Font_Varient
 {
     using dynamic_font;
 
@@ -945,8 +950,10 @@ asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32)
         error := FT_New_Memory_Face(ft_library, raw_font_data.data, xx raw_font_data.count, 0, *font_face);
         if !error
         {
-            result  := cast(*Font_Page)push_size(dynamic_font.asset_arena, size_of(Font_Page));
-            result.glyph_lookup = hash_table_create(asset_arena, 1024);
+            result            := cast(*Font_Varient)push_size(dynamic_font.asset_arena, size_of(Font_Varient));
+            result.first_page  = push_struct(dynamic_font.asset_arena, Font_Page);
+            
+            result.first_page.glyph_lookup = hash_table_create(asset_arena, 1024);
             //result  := New(Font_Page);
             success := FT_Set_Pixel_Sizes(font_face, 0, xx pixel_size);
             //success := FT_Set_Char_Size(font_face, pixel_size * 64, 0, 360, 0);
@@ -957,7 +964,9 @@ asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32)
             result.line_spacing     = cast(int)floor(font_scale_to_pixels * font_face.height + 0.5);
             result.max_ascender     = cast(int)floor(font_scale_to_pixels * font_face.bbox.yMax + 0.5);
             result.max_descender    = cast(int)floor(font_scale_to_pixels * font_face.bbox.yMin + 0.5);
-            result.master_font      = dynamic_font;
+            result.parent_font      = dynamic_font;
+            result.first_page.parent_varient = result;
+            result.first_page.parent_varient.parent_font = dynamic_font;
 
             glyph_index := FT_Get_Char_Index(font_face, #char "m");
             if glyph_index {
@@ -998,7 +1007,6 @@ asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32)
                 }
             }
 
-            result.is_valid = true;
             array_add(*pixel_sizes, result);
             return(result);
         }
@@ -1017,13 +1025,29 @@ asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32)
 asset_get_font_at_size :: inline (using dynamic_font: *Dynamic_Render_Font, font_scale: s32) -> *Font_Page
 {
     result : *Font_Page = null;
+
     for pixel_sizes
     {
-        if it.character_height == font_scale then result = *it;
+        if it.character_height == font_scale
+        {
+            page_ptr := it.first_page;
+            while page_ptr != null
+            {
+                if !page_ptr.page_full
+                {
+                    result = page_ptr;
+                    break;
+                }
+                else
+                {
+                    page_ptr = page_ptr.next_page;
+                }
+            }
+        }
     }
 
     if result == null then
-    result = asset_load_font_at_size(dynamic_font, font_scale);
+    result = asset_load_font_at_size(dynamic_font, font_scale).first_page;
 
     return result;
 }
@@ -1047,11 +1071,11 @@ asset_get_font :: (asset_manager: *Asset_Manager, name: string) -> *Dynamic_Rend
 #scope_file
 ft_library: FT_Library;
 
-set_unknown_character :: (using font_page: *Font_Page, utf32: u32) -> bool {
-    index := FT_Get_Char_Index(master_font.font_face, utf32);
+set_unknown_character :: (font_varient: *Font_Varient, utf32: u32) -> bool {
+    index := FT_Get_Char_Index(font_varient.parent_font.font_face, utf32);
     if !index return false;
 
-    default_unknown_character = index;
+    font_varient.default_unknown_character = index;
     return true;
 }
 
