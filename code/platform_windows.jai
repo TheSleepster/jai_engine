@@ -125,7 +125,7 @@ slp_close_thread_handle :: (thread_data: SLP_Thread) -> bool
 // NETWORKING
 ///////////////
 
-// NOTE(Sleepster): THIS IS UDP ONLY!!!!!  
+// NOTE(Sleepster): THIS IS UDP ONLY AND IPv4 ONLY!!!!!  
 IOW :: (x: u8, y: u8, $T: Type) -> s32
 {
     return (IOC_IN|((cast(s32)size_of(T)&IOCPARM_MASK)<<16)|((cast(u16)x)<<8)|(y));
@@ -251,5 +251,6 @@ slp_socket_read_from :: (socket: *SLP_Socket) -> string, s64
                            0,
                            cast(*sockaddr)*from,
                            *from_size);
+    buffer.count = bytes_read;
     return buffer, bytes_read;
 }

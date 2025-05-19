@@ -51,7 +51,7 @@ RENDERER:
   - [ ] Allow the renderer to support pivots (left, center, right, top left, top right)
   - [ ] Make the renderer follow what the GAME demands, not what the renderer independently decides to do (clear the screen, draw now, etc.)
   - [ ] Make the drawing API ACTUALLY allow rotations. Right now it's like a "pass the rotation but we won't do anything with it lol" thing
-  - [ ] Allow the drawing API to draw simple lines. Idk why this HAS to be here.
+  - [ ] (optional) Allow the drawing API to draw simple lines. Idk why this HAS to be here.
 
 ASSET MANAGER:
   - [ ] Revise the asset manager
@@ -68,7 +68,6 @@ ASSET MANAGER:
 FIXES:
   - [ ] Radix sort might be bugged
   - [ ] Fix the sound mixer to not explode and die when the framerate drops
-  - [ ] Platform indepedent networking API, jai's module isn't too great me thinks. 
 
 BACKBURNER:
     // NOTE(Sleepster): mostly looking at Vulkan, not D3D11. However, Vulkan bindings for Jai don't exist it seems
@@ -79,6 +78,7 @@ DONE:
   - [x] Create "win32_engine.jai" and "linux_engine.jai" for platform dependant systems (memory allocation)
   - [x] Multithreading API
   - [x] Fix game_action_* api so that you can do things like so: game_action_is_pressed(game_state.input_manager, .INTERACT);
+  - [x] Platform indepedent networking API, jai's module isn't too great me thinks. 
 */
 
 DEBUG :: 0;

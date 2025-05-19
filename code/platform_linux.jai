@@ -308,5 +308,6 @@ slp_socket_read_from :: (socket: *SLP_Socket) -> string, s64
                            0,
                            cast(*sockaddr)*from,
                            *from_size);
+    buffer.count = bytes_read;
     return buffer, bytes_read;
 }
