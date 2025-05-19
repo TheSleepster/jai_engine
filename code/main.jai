@@ -55,7 +55,7 @@ RENDERER:
 
 ASSET MANAGER:
   - [ ] Revise the asset manager
-  - [ ] Fix the dynamic font loader so that it actually works as intended and doesn't crash when we run out of atlas space
+  - [ ] When we revise the manager, properly fix the font system
   - [ ] Hotreloading of the game file??? 
   - [ ] Improve hot reloading of the assets???
   - [ ] Break shaders into hot reloadable systems?
@@ -79,9 +79,10 @@ DONE:
   - [x] Multithreading API
   - [x] Fix game_action_* api so that you can do things like so: game_action_is_pressed(game_state.input_manager, .INTERACT);
   - [x] Platform indepedent networking API, jai's module isn't too great me thinks. 
+  - [x] Fix the dynamic font loader so that it actually works as intended and doesn't crash when we run out of atlas space
 */
 
-DEBUG :: 0;
+DEBUG :: 1;
 
 SAMPLES_PER_SECOND    :: 48000;
 
@@ -522,7 +523,7 @@ main :: ()
                 {
                     // IMPORTANT(Sleepster): WARNING THIS FUNCTION IS SLOW AS BALLS 
                     hotload_assets(*asset_manager);
-                    hotload_variable_file_data("../data/res/");
+                    hotload_variable_file_data("../data/res");
                 }
                 reset_frame_data(transient_state, *draw_frame_data, *window_data);
             }

@@ -311,3 +311,25 @@ slp_socket_read_from :: (socket: *SLP_Socket) -> string, s64
     buffer.count = bytes_read;
     return buffer, bytes_read;
 }
+
+//////////////////
+// DLL RELOADING
+//////////////////
+
+// NOTE(Sleepster): Error handling is left to the caller... 
+slp_load_dynamic_library :: (filepath: string) -> SLP_Dynamic_Library
+{
+    result: SLP_Dynamic_Library;
+    return result;
+}
+
+slp_unload_dynamic_library :: (library: *SLP_Dynamic_Library)
+{
+    assert(library.module_handle != null);
+}
+
+slp_get_proc_address :: (libary: *SLP_Dynamic_Library, proc_name: string) -> *void
+{
+    result: *void = null;
+    return result;
+}

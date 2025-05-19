@@ -99,3 +99,14 @@ SLP_Socket :: struct
     is_bound_to_addr : bool;
     is_non_blocking  : bool;
 };
+
+//////////////////
+// DLL RELOADING
+//////////////////
+
+SLP_Dynamic_Library :: struct
+{
+    module_handle: *void;
+    last_mod_time:  Apollo_Time;
+    last_mod_size:  s64;
+};

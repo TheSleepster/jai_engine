@@ -19,14 +19,15 @@ slp_allocate_memory :: inline (size: u64) -> *void
     return data;
 }
 
-//////////////
-// THREADING
-//////////////
-
 slp_deallocate_memory :: inline (data: *void, size: u64)
 {
     VirtualFree(data, 0, MEM_RELEASE);
 }
+
+
+//////////////
+// THREADING
+//////////////
 
 slp_get_cpu_count :: inline () -> s64 
 {
@@ -253,4 +254,39 @@ slp_socket_read_from :: (socket: *SLP_Socket) -> string, s64
                            *from_size);
     buffer.count = bytes_read;
     return buffer, bytes_read;
+}
+
+//////////////////
+// DLL RELOADING
+//////////////////
+
+// NOTE(Sleepster): Error handling is left to the caller... 
+slp_load_dynamic_library :: (filepath: string) -> SLP_Dynamic_Library
+{
+    result: SLP_Dynamic_Library;
+    result.last_mod_time, result.last_mod_size = file_modtime_and_size(filepath);
+    
+    c_filepath := temp_c_string(filepath);
+    result.module_handle = LoadLibraryA(c_filepath);
+
+    return result;
+}
+
+slp_unload_dynamic_library :: (library: *SLP_Dynamic_Library)
+{
+    assert(library.module_handle != null);
+    FreeLibrary(library.module_handle);
+
+    library.module_handle = null;
+    library.last_mod_time = .{};
+    library.last_mod_size = 0;
+}
+
+slp_get_proc_address :: (libary: *SLP_Dynamic_Library, proc_name: string) -> *void
+{
+    result: *void = null;
+    proc_name_c_str := temp_c_string(proc_name);
+    result = GetProcAddress(libary.module_handle, proc_name_c_str);
+
+    return result;
 }
