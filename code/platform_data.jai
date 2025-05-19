@@ -107,6 +107,9 @@ SLP_Socket :: struct
 SLP_Dynamic_Library :: struct
 {
     module_handle: *void;
+    module_path  :  string;
     last_mod_time:  Apollo_Time;
     last_mod_size:  s64;
+
+    is_valid     :  bool;
 };

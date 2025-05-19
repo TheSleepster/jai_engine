@@ -158,6 +158,12 @@ v2_expand :: inline (A: Vector2, B: float32, C: float32) -> Vector4
 ////////////////////
 // VECTOR OPERATORS
 ////////////////////
+iVector2 :: struct 
+{
+    x : s32;
+    y : s32;
+};
+
 operator + :: (A: Vector2, B: iVector2) -> Vector2
 {
     result: Vector2 = ---;

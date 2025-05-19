@@ -1,9 +1,3 @@
-iVector2 :: struct 
-{
-    x : s32;
-    y : s32;
-};
-
 Vertex :: struct 
 {
     vPosition     :  Vector4;

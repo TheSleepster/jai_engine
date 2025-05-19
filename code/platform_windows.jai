@@ -31,6 +31,10 @@ slp_deallocate_memory :: inline (data: *void, size: u64)
 
 slp_get_cpu_count :: inline () -> s64 
 {
+    // NOTE(Sleepster): Window's is bad at thread switching without this 
+    SetProcessDPIAware();
+    timeBeginPeriod(1);
+
     system_info: SYSTEM_INFO;
     GetSystemInfo(*system_info);
 
@@ -264,10 +268,15 @@ slp_socket_read_from :: (socket: *SLP_Socket) -> string, s64
 slp_load_dynamic_library :: (filepath: string) -> SLP_Dynamic_Library
 {
     result: SLP_Dynamic_Library;
+    result.module_path = filepath;
     result.last_mod_time, result.last_mod_size = file_modtime_and_size(filepath);
     
     c_filepath := temp_c_string(filepath);
     result.module_handle = LoadLibraryA(c_filepath);
+    if result.module_handle != null
+    {
+        result.is_valid = true;
+    }
 
     return result;
 }
@@ -280,6 +289,7 @@ slp_unload_dynamic_library :: (library: *SLP_Dynamic_Library)
     library.module_handle = null;
     library.last_mod_time = .{};
     library.last_mod_size = 0;
+    library.is_valid = false;
 }
 
 slp_get_proc_address :: (libary: *SLP_Dynamic_Library, proc_name: string) -> *void
@@ -287,6 +297,17 @@ slp_get_proc_address :: (libary: *SLP_Dynamic_Library, proc_name: string) -> *vo
     result: *void = null;
     proc_name_c_str := temp_c_string(proc_name);
     result = GetProcAddress(libary.module_handle, proc_name_c_str);
+    if result == null
+    {
+        error := GetLastError();
+        x := 0;
+    }
+    assert(result != null);
 
     return result;
+}
+
+slp_exit_process :: ()
+{
+    ExitProcess(0);
 }
