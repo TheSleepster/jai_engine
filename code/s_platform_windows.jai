@@ -31,7 +31,7 @@ slp_deallocate_memory :: inline (data: *void, size: u64)
 
 slp_get_cpu_count :: inline () -> s64 
 {
-    // NOTE(Sleepster): Window's is bad at thread switching without this 
+    // NOTE(Sleepster): Windows is bad at thread switching without this 
     SetProcessDPIAware();
     timeBeginPeriod(1);
 

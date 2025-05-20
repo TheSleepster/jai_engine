@@ -1,6 +1,6 @@
 // Workspace: EXE
 
 //
-// String added via add_build_string() from /home/justin/personal/projects/jai-stuff/jai_engine/code/build.jai:73.
+// String added via add_build_string() from j:/jai_engine/code/build.jai:25.
 //
-DEBUG :: 0;
+DEBUG :: 1;

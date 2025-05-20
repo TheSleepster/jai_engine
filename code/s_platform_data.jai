@@ -1,10 +1,10 @@
 #if OS == .WINDOWS
 {
-    #load "platform_windows.jai";
+    #load "s_platform_windows.jai";
 }
 #if OS == .LINUX
 {
-    #load "platform_linux.jai";
+    #load "s_platform_linux.jai";
 }
 #if OS == .MACOS
 {

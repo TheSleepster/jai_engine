@@ -23,19 +23,21 @@
 #import "stb_image_resize";
 
 // ENGINE LOADS
-#load   "platform_data.jai";
-#load   "util.jai";
-#load   "memory.jai";
-#load   "sl_hash_table.jai";
-#load   "asset.jai";
-#load   "shaders.jai";
-#load   "drawing.jai";
-#load   "audio.jai";
-#load   "opengl_renderer.jai";
-#load   "input.jai";
-#load   "variables.jai";
-#load   "hotloading.jai";
-#load   "profiler.jai";
+#load   "s_platform_data.jai";
+#load   "e_util.jai";
+#load   "e_memory.jai";
+#load   "e_hash_table.jai";
+#load   "e_asset.jai";
+#load   "e_audio.jai";
+#load   "e_variable_reloading.jai";
+#load   "i_drawing.jai";
+#load   "i_input.jai";
+#load   "r_opengl_renderer.jai";
+#load   "r_shaders.jai";
+#load   "d_hotloading.jai";
+#load   "d_profiler.jai";
+
+HOTLOAD :: 0;
 
 #if DEBUG == 1
 {
@@ -57,7 +59,7 @@
     }
 }
 
-#load   "game_entry.jai";
+#load   "game_loop.jai";
 #add_context garbage_arena: Memory_Arena;
 
 SAMPLES_PER_SECOND    :: 48000;
@@ -490,7 +492,7 @@ game_main :: (window_data: *Window_Data, library: *SLP_Dynamic_Library = null) -
         }
 
         // TEST HOTLOADING
-        #if DEBUG == 1
+        #if HOTLOAD == 1
         {
             // IMPORTANT(Sleepster): WARNING THIS FUNCTION IS SLOW AS BALLS 
             hotload_assets(*asset_manager);

@@ -21,7 +21,7 @@ build_debug :: (exe_workspace: Workspace)
         set_build_options(options, exe_workspace);
 
         compiler_begin_intercept(exe_workspace);
-        add_build_file("main.jai", exe_workspace);
+        add_build_file("e_main.jai", exe_workspace);
         add_build_string("DEBUG :: 1;", exe_workspace);
         compiler_end_intercept(exe_workspace);
     }
@@ -69,7 +69,7 @@ build_release :: (workspace: Workspace)
     set_build_options(options, workspace);
 
     compiler_begin_intercept(workspace);
-    add_build_file("main.jai", workspace);
+    add_build_file("e_main.jai", workspace);
     add_build_string("DEBUG :: 0;", workspace);
     compiler_end_intercept(workspace);
 
