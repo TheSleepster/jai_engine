@@ -59,7 +59,7 @@ Entity :: struct
     
     render_size     :  iVector2;
     draw_color      :  Vector4;
-    sprite_data     : *Atlas_Sprite;
+    sprite_data     : *Sprite2D;
 
     attached_entity : *Entity;
     direction       :  Vector2;

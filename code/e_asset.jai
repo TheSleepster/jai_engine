@@ -12,7 +12,7 @@ Asset_Slot_State :: enum u8
 Asset_Type_Data :: enum u8
 {
     NONE;
-    IMAGE;
+    TEXTURE;
     SPRITE;
     SOUNDFX;
     FONT;
@@ -30,12 +30,13 @@ Asset_Slot :: struct
     {
         soundfx      : Loaded_Sound_Data;
         texture_data : Texture2D;
-        sprite_data  : Atlas_Sprite;
+        sprite_data  : Sprite2D;
         shader       : Shader_Data;
         font_data    : Dynamic_Render_Font;
     }
 };
 
+// TODO(Sleepster): This "Asset_Data_Path" area is temporary. We will eventually use a custom asset file format.
 Asset_Data_Path :: struct
 {
     path       : string;
@@ -45,30 +46,49 @@ Asset_Data_Path :: struct
 Asset_Manager :: struct
 {
     transient_state       : *Transient_State;
-    asset_arena           :  Memory_Arena;
+
+    hash_data_arena       :  Memory_Arena;
+    texture_arena         :  Memory_Arena;
+    sprite_arena          :  Memory_Arena;
+    sound_arena           :  Memory_Arena;
+    shader_arena          :  Memory_Arena;
+    font_arena            :  Memory_Arena;
+
+    max_font_size         :  s32;
+    small_font_size       :  s32;
+    medium_font_size      :  s32;
+    large_font_size       :  s32;
+    
+    engine_texture_width  :  s32;
+    engine_texture_height :  s32;
 
     // NOTE(Sleepster): This is an array of textures that are going to be put into an atlas
     transient_textures    :  [64]Texture2D;
     textures_to_insert    :  s32;
 
-    max_font_size         : s32;
-    small_font_size       : s32;
-    medium_font_size      : s32;
-    large_font_size       : s32;
-    
-    engine_texture_width  : s32;
-    engine_texture_height : s32;
-    
     data_paths            : [3]Asset_Data_Path;
 
-    textures              :  sl_Hash_Table;
-    sprites               :  sl_Hash_Table;
-    soundfx               :  sl_Hash_Table;
-    shaders               :  sl_Hash_Table;
-    fonts                 :  sl_Hash_Table;
+    union
+    {
+        asset_data: [5]sl_Hash_Table;
+        struct
+        {
+            texture_hash :  sl_Hash_Table;
+            sprite_hash  :  sl_Hash_Table;
+            sound_hash   :  sl_Hash_Table;
+            shader_hash  :  sl_Hash_Table;
+            font_hash    :  sl_Hash_Table;
+        };
+    };
 
+    // TODO(Sleepster): Why is this here? Shouldn't this be in the sound manager??? 
     first_playing_sound      : *Playing_Sound;
     first_free_playing_sound : *Playing_Sound;
+};
+
+Visit_File_Data :: struct
+{
+    asset_manager: *Asset_Manager;
 };
 
 init_asset_manager_data :: (render_state: *Render_State, asset_manager: *Asset_Manager)
@@ -78,33 +98,45 @@ init_asset_manager_data :: (render_state: *Render_State, asset_manager: *Asset_M
     error := FT_Init_FreeType(*ft_library);
     assert(!error);
 
-    asset_manager.textures = hash_table_create(*asset_manager.asset_arena, 512);
-    asset_manager.sprites  = hash_table_create(*asset_manager.asset_arena, 512);
-    asset_manager.soundfx  = hash_table_create(*asset_manager.asset_arena, 512);
-    asset_manager.shaders  = hash_table_create(*asset_manager.asset_arena, 512);
-    asset_manager.fonts    = hash_table_create(*asset_manager.asset_arena, 512);
+    asset_manager.texture_hash = hash_table_create(*asset_manager.hash_data_arena, 512);
+    asset_manager.sprite_hash  = hash_table_create(*asset_manager.hash_data_arena, 512);
+    asset_manager.sound_hash   = hash_table_create(*asset_manager.hash_data_arena, 512);
+    asset_manager.shader_hash  = hash_table_create(*asset_manager.hash_data_arena, 512);
+    asset_manager.font_hash    = hash_table_create(*asset_manager.hash_data_arena, 512);
 
     asset_manager.data_paths[0] = .{"../data/res/textures/", 0};
     asset_manager.data_paths[1] = .{"../data/res/sounds/", 0};
     asset_manager.data_paths[2] = .{"../data/res/fonts", 0};
 
-    if is_directory("../data/res/textures/DEBUG")
+    if is_directory("../data/res/textures")
     {
         file_data: Visit_File_Data;
-        file_data.transient_state = asset_manager.transient_state;
-        visit_files("../data/res/textures/DEBUG", true, cast(*void)*file_data, init_asset_image_metadata_from_disk);
+        file_data.asset_manager = asset_manager;
+        visit_files("../data/res/textures",
+                    true,
+                    cast(*void)*file_data,
+                    init_asset_image_metadata_from_disk,
+                    true);
     }
     if is_directory("../data/res/sounds")
     {
         file_data: Visit_File_Data;
-        file_data.transient_state = asset_manager.transient_state;
-        visit_files("../data/res/sounds", true, cast(*void)*file_data, init_asset_sound_metadata_from_disk);
+        file_data.asset_manager = asset_manager;
+        visit_files("../data/res/sounds",
+                    true,
+                    cast(*void)*file_data,
+                    init_asset_sound_metadata_from_disk,
+                    true);
     }
     if is_directory("../data/res/fonts")
     {
         file_data: Visit_File_Data;
-        file_data.transient_state = asset_manager.transient_state;
-        visit_files("../data/res/fonts", true, cast(*void)*file_data, init_asset_font_metadata_from_disk);
+        file_data.asset_manager = asset_manager;
+        visit_files("../data/res/fonts",
+                    true,
+                    cast(*void)*file_data,
+                    init_asset_font_metadata_from_disk,
+                    true);
     }
     
     add_shader_to_hash(render_state, asset_manager, BASIC_SHADER_SOURCE_TEXT, "Basic_Shader",      xx Shader_Type.PIXEL);
@@ -116,33 +148,33 @@ init_asset_manager_data :: (render_state: *Render_State, asset_manager: *Asset_M
 ////////////////
 // SPRITES
 ////////////////
-Atlas_Sprite :: struct
+Sprite2D :: struct
 {
-    atlas_position : iVector2;
-    atlas_size     : iVector2;
-    rotation       : float32;
+    atlas_offset : iVector2;
+    atlas_size   : iVector2;
+    rotation     : float32;
 
     parent_texture : *Texture2D;
     atlas_texture  : *Texture2D;
 };
 
-subsprite :: (sprite: *Atlas_Sprite, offset: Vector2, new_size: Vector2) -> Atlas_Sprite
+subsprite :: (sprite: *Sprite2D, offset: Vector2, new_size: Vector2) -> Sprite2D
 {
     assert(new_size.x > 0 && new_size.y > 0);
     assert(offset.x < xx sprite.atlas_size.x && offset.y < xx sprite.atlas_size.y);
     
-    result: Atlas_Sprite;
+    result: Sprite2D;
     result = sprite.*;
 
-    result.atlas_position += offset;
+    result.atlas_offset += offset;
     result.atlas_size      = .{xx new_size.x, xx new_size.y};
 
     return result;
 }
 
-asset_get_sprite :: (asset_manager: *Asset_Manager, key: string) -> *Atlas_Sprite
+asset_get_sprite :: (asset_manager: *Asset_Manager, key: string) -> *Sprite2D
 {
-    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.sprites, key);
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.sprite_hash, key);
     if asset_slot != null
     {
         return *asset_slot.sprite_data;
@@ -178,21 +210,21 @@ Texture2D :: struct
 
 init_asset_image_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void)
 {
-    transient_state := (cast(*Visit_File_Data)user_data).transient_state;
+    transient_state := (cast(*Visit_File_Data)user_data).asset_manager.transient_state;
     asset_manager   := transient_state.asset_manager;
 
     path, basename, ext := path_decomp(info.full_name);
-    if ext == "png"
+    if ext == "png" && !info.is_directory
     {
         transient_state.filepath_temp_string = copy_string(info.full_name);
         transient_state.basename_temp_string = copy_string(basename);
         
-        asset_data                       := push_struct(*asset_manager.asset_arena, Asset_Slot);
+        asset_data                       := push_struct(*asset_manager.texture_arena, Asset_Slot);
         asset_data.texture_data.filepath  = copy_string(transient_state.filepath_temp_string);
         asset_data.texture_data.hash_name = copy_string(transient_state.basename_temp_string);
-        asset_data.asset_type = Asset_Type_Data.IMAGE;
+        asset_data.asset_type = .TEXTURE;
 
-        hash_insert_pair(*asset_manager.textures, transient_state.basename_temp_string, cast(*void)asset_data);
+        hash_insert_pair(*asset_manager.texture_hash, transient_state.basename_temp_string, cast(*void)asset_data);
         print("LOADED...\n");
         print("PATH: %\n", path);
         print("NAME: %\n\n\n", basename);
@@ -205,7 +237,7 @@ asset_load_texture_from_path :: (asset_manager: *Asset_Manager, filepath: string
     allocated: bool;
 
     path, basename, ext := path_decomp(filepath);
-    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.textures, basename);
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.texture_hash, basename);
     if asset_slot
     {
         manager_texture := *asset_slot.texture_data;
@@ -232,7 +264,7 @@ asset_load_texture_data :: (asset_manager: *Asset_Manager, result: *Texture2D,  
 {
     allocated: bool;
 
-    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.textures, result.hash_name);
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.texture_hash, result.hash_name);
     if asset_slot
     {
         manager_texture := *asset_slot.texture_data;
@@ -255,14 +287,14 @@ asset_load_texture_data :: (asset_manager: *Asset_Manager, result: *Texture2D,  
     return allocated;
 }
 
-push_sprite_into_atlas :: (atlas: *Texture2D, sprite: *Atlas_Sprite)
+push_sprite_into_atlas :: (atlas: *Texture2D, sprite: *Sprite2D)
 {
     for x: 0..sprite.atlas_size.x - 1
     {
         for y: 0..sprite.atlas_size.y -1
         {
-            atlas_texture_data_offset := ((sprite.atlas_position.y + y) * atlas.width +
-                                          (sprite.atlas_position.x + x)) * atlas.channels;
+            atlas_texture_data_offset := ((sprite.atlas_offset.y + y) * atlas.width +
+                                          (sprite.atlas_offset.x + x)) * atlas.channels;
 
             sprite_texture_data_offset := (y * sprite.atlas_size.x + x) *
                                            sprite.parent_texture.channels;
@@ -277,13 +309,13 @@ push_sprite_into_atlas :: (atlas: *Texture2D, sprite: *Atlas_Sprite)
 
 move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atlas_height: s32) -> *Texture2D
 {
-    atlas_texture : *Texture2D = push_struct(*asset_manager.asset_arena, Texture2D);
+    atlas_texture : *Texture2D = push_struct(*asset_manager.texture_arena, Texture2D);
     atlas_texture.width        = atlas_width;
     atlas_texture.height       = atlas_height;
     atlas_texture.channels     = 4;
     if atlas_texture.data == null
     {
-        atlas_texture.data     = push_size(*asset_manager.asset_arena, size_of(u8) * ((atlas_width * atlas_height) * 4));
+        atlas_texture.data     = push_size(*asset_manager.texture_arena, size_of(u8) * ((atlas_width * atlas_height) * 4));
     }
 
     textures := asset_manager.transient_textures;
@@ -302,7 +334,7 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
         {
             main_texture := *textures[texture.original_index_before_sorting];
             
-            sprite_slot  := push_struct(*asset_manager.asset_arena, Asset_Slot);
+            sprite_slot  := push_struct(*asset_manager.texture_arena, Asset_Slot);
             sprite_slot.slot_state = Asset_Slot_State.LOADED;
             sprite_slot.asset_type = Asset_Type_Data.SPRITE;
 
@@ -322,12 +354,12 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
                 log("Atlas height has been reached, can no longer fill\n");
                 return atlas_texture;
             }
-            texture_rect.atlas_position = .{x_position, y_position};
+            texture_rect.atlas_offset = .{x_position, y_position};
             x_position += texture_rect.atlas_size.x + 1;
             if texture_rect.atlas_size.y > largest_row_height then largest_row_height = texture_rect.atlas_size.y;
 
             push_sprite_into_atlas(atlas_texture, texture_rect);
-            hash_insert_pair(*asset_manager.sprites, texture.hash_name, sprite_slot);
+            hash_insert_pair(*asset_manager.sprite_hash, texture.hash_name, sprite_slot);
 
             stbi_image_free(texture.data);
             texture_rect.parent_texture.is_loaded  = false;
@@ -341,12 +373,12 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
 load_texture_data_from_dir :: (info: *File_Visit_Info, data: *void)
 {
     file_data := cast(*Visit_File_Data)data;
-    transient_state := file_data.transient_state;
+    transient_state := file_data.asset_manager.transient_state;
 
     path, basename, ext := path_decomp(info.full_name);
-    if ext == "png"
+    if ext == "png" && !info.is_directory
     {
-        texture_slot := cast(*Asset_Slot)hash_get_value(*transient_state.asset_manager.textures, basename);
+        texture_slot := cast(*Asset_Slot)hash_get_value(*transient_state.asset_manager.texture_hash, basename);
         texture_data := texture_slot.texture_data;
         texture_data.filepath  = path;
         texture_data.hash_name = basename;
@@ -366,7 +398,7 @@ load_texture_data_from_dir :: (info: *File_Visit_Info, data: *void)
 
 load_textures_into_atlas :: (asset_manager: *Asset_Manager, key: string)
 {
-    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.textures, key);
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.texture_hash, key);
     if asset_slot
     {
         if asset_slot.slot_state == Asset_Slot_State.UNLOADED && asset_slot.texture_data.filepath.data != null
@@ -374,7 +406,7 @@ load_textures_into_atlas :: (asset_manager: *Asset_Manager, key: string)
             path, name, ext := path_decomp(asset_slot.texture_data.filepath);
 
             file_data : Visit_File_Data;
-            file_data.transient_state = asset_manager.transient_state;
+            file_data.asset_manager = asset_manager;
             visit_files(path, true, cast(*void)*file_data, load_texture_data_from_dir);
 
             atlas := move_images_into_atlas(asset_manager, ENGINE_TEXTURE_WIDTH,  ENGINE_TEXTURE_HEIGHT);
@@ -448,21 +480,21 @@ Playing_Sound :: struct
 
 init_asset_sound_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void)
 {
-    transient_state := (cast(*Visit_File_Data)user_data).transient_state;
+    transient_state := (cast(*Visit_File_Data)user_data).asset_manager.transient_state;
     asset_manager   := transient_state.asset_manager;
 
     path, basename, ext := path_decomp(info.full_name);
-    if ext == "wav"
+    if ext == "wav" && !info.is_directory
     {
         transient_state.filepath_temp_string = copy_string(info.full_name);
         transient_state.basename_temp_string = copy_string(basename);
 
-        asset_data := push_struct(*asset_manager.asset_arena, Asset_Slot);
+        asset_data := push_struct(*asset_manager.sound_arena, Asset_Slot);
         asset_data.soundfx.filepath  = copy_string(transient_state.filepath_temp_string);
         asset_data.soundfx.hash_name = copy_string(transient_state.basename_temp_string);
         asset_data.asset_type = Asset_Type_Data.SOUNDFX;
 
-        hash_insert_pair(*asset_manager.soundfx, transient_state.basename_temp_string, cast(*void)asset_data);
+        hash_insert_pair(*asset_manager.sound_hash, transient_state.basename_temp_string, cast(*void)asset_data);
         print("LOADED...\n");
         print("PATH: %\n", path);
         print("NAME: %\n\n\n", basename);
@@ -474,7 +506,7 @@ asset_load_sound_from_disk :: inline (asset_manager: *Asset_Manager, sound_slot:
     sound := *sound_slot.soundfx;
     if sound.filepath.data != null && sound_slot.slot_state == Asset_Slot_State.UNLOADED 
     {
-        sound.* = load_wav_file(*asset_manager.asset_arena, sound.filepath);
+        sound.* = load_wav_file(*asset_manager.sound_arena, sound.filepath);
         sound.hash_name = key;
         sound_slot.slot_state = Asset_Slot_State.LOADED;
     }
@@ -482,7 +514,7 @@ asset_load_sound_from_disk :: inline (asset_manager: *Asset_Manager, sound_slot:
 
 asset_get_sound :: (asset_manager: *Asset_Manager, key: string) -> *Loaded_Sound_Data
 {
-    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.soundfx, key);
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.sound_hash, key);
     if asset_slot != null
     {
         if asset_slot.soundfx.sample_data != null && !asset_slot.modified then return *asset_slot.soundfx;
@@ -491,7 +523,7 @@ asset_get_sound :: (asset_manager: *Asset_Manager, key: string) -> *Loaded_Sound
         return *asset_slot.soundfx;
     }
     else
-    {
+    {
         log("[ERROR]: Sound Key: % is not a valid entry...\n", key);
         return *null_soundfx;
     }
@@ -525,7 +557,7 @@ play_sound :: (sound_manager: *Sound_Manager, key: string, left_channel_volume: 
 // SHADERS
 ///////////////////
 
-Shader_Type : enum u8
+Shader_Type :: enum
 {
     UNDEFINED;
     PIXEL;
@@ -541,7 +573,7 @@ Shader_Data :: struct
     source_string : string;
 };
 
-add_shader_to_hash :: (render_state: *Render_State, asset_manager: *Asset_Manager, shader_source: string, hash_key: string, type: u8)
+add_shader_to_hash :: (render_state: *Render_State, asset_manager: *Asset_Manager, shader_source: string, hash_key: string, type: Shader_Type)
 {
     // TODO(Sleepster): Investigate why this happens
     asset_slot  := cast(*Asset_Slot)push_struct(*render_state.render_arena, Asset_Slot);
@@ -552,7 +584,7 @@ add_shader_to_hash :: (render_state: *Render_State, asset_manager: *Asset_Manage
     shader_data.hash_name     = hash_key;
     shader_data.source_string = copy_string(shader_source);
 
-    hash_insert_pair(*asset_manager.shaders, hash_key, asset_slot);
+    hash_insert_pair(*asset_manager.shader_hash, hash_key, asset_slot);
 }
     
 make_shader_object :: (shader: *string, prefix: string, shader_type: GLenum) -> GLuint
@@ -647,7 +679,7 @@ compile_shader_source :: (asset_manager: *Asset_Manager, shader_slot: *Asset_Slo
 
 asset_get_shader :: (asset_manager: *Asset_Manager, key: string) -> *Shader_Data
 {
-    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.shaders, key);
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.shader_hash, key);
     if asset_slot != null
     {
         if asset_slot.slot_state == Asset_Slot_State.UNLOADED
@@ -685,11 +717,16 @@ Bitmap_Formats :: enum s32
 
 Bitmap :: struct
 {
-    format :   u8;
-    width  :   s32;
-    height :   s32;
-    stride :   s32;
-    data   : []u8;
+    data     :  *u8;
+    format   :   u8;
+    channels :   u32;
+    
+    stride   :   s32;
+    is_dirty :   bool;
+    is_valid :   bool;
+
+    width    :   s32;
+    height   :   s32;
 };
 
 init_bitmap_data :: (arena: *Memory_Arena, width: s32, height: s32, format: Bitmap_Formats) -> Bitmap
@@ -699,8 +736,7 @@ init_bitmap_data :: (arena: *Memory_Arena, width: s32, height: s32, format: Bitm
     result.width  = width;
     result.height = height;
     result.stride = (1 * result.format);
-    result.data   = push_array(arena, u8, cast(u32)(result.width * result.height) * result.format);
-    //result.data   = NewArray(width * height * cast(s32)format, u8);
+    result.data   = push_size(arena, size_of(u8) * cast(u32)(result.width * result.height) * result.format);
 
     return result;
 }
@@ -711,7 +747,7 @@ init_bitmap_data :: (arena: *Memory_Arena, width: s32, height: s32, format: Bitm
 
 Font_Glyph_Data :: struct
 {
-    glyph_data : Atlas_Sprite;
+    glyph_data : Sprite2D;
     glyph_key  : u32;
 
     offset_x   : s32;
@@ -719,29 +755,26 @@ Font_Glyph_Data :: struct
     advance    : s32;
     ascent     : s32;
 
-    page       : *Font_Page;
+    owner_page : *Dynamic_Render_Font_Page;
 };
 
-// TODO(Sleepster): Come back and fix this, currently if the atlas is full, we simply just keep writing into it... obviously not ideal
-// TODO(Sleepster): Sometimes It doesn't load the font correctly on demand like it should. Probably a hash collision
-Font_Page :: struct
+Dynamic_Render_Font_Page :: struct
 {
-    page_full         : bool;
-    page_dirty        : bool;
-    
-    glyph_lookup      : sl_Hash_Table;
-    
-    texture           : Texture2D;
-    bitmap            : Bitmap;
+    page_full       : bool;
+    page_dirty      : bool;
 
-    bitmap_cursor_x   : s32;
-    bitmap_cursor_y   : s32;
+    glyph_lookup    : sl_Hash_Table;
+    texture_data    : Texture2D;
+    bitmap          : Bitmap;
 
-    parent_varient    : *Font_Varient;
-    next_page         : *Font_Page;
+    bitmap_cursor_x : s32;
+    bitmap_cursor_y : s32;
+
+    parent_varient  : *Dynamic_Render_Font_Varient;
+    next_page       : *Dynamic_Render_Font_Page;
 };
 
-Font_Varient :: struct
+Dynamic_Render_Font_Varient :: struct
 {
     pixel_size        : s32;
 
@@ -758,25 +791,24 @@ Font_Varient :: struct
     utf32_unknown_character   := 0xfffd;
 
     parent_font : *Dynamic_Render_Font;
-    first_page  : *Font_Page;
+    first_page  : *Dynamic_Render_Font_Page;
 };
 
-// TODO(Sleepster): Implement this 
 Dynamic_Render_Font :: struct
 {
-    font_face        :  FT_Face;
-    font_name        :  string;
-    filepath         :  string;
-    raw_font_data    :  string;
+    font_face     :  FT_Face;
+    font_name     :  string;
+    filepath      :  string;
+    raw_font_data :  string;
 
-    asset_arena      : *Memory_Arena;
-    pixel_sizes      :  [..]Font_Varient;
+    font_arena    : *Memory_Arena;
+    pixel_sizes   :  [..]Dynamic_Render_Font_Varient;
 };
 
 init_asset_font_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void)
 {
     visit_file_info := cast(*Visit_File_Data)user_data;
-    transient_state := visit_file_info.transient_state;
+    transient_state := visit_file_info.asset_manager.transient_state;
     asset_manager   := transient_state.asset_manager;
 
     path, basename, ext := path_decomp(info.full_name);
@@ -785,12 +817,12 @@ init_asset_font_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void)
         transient_state.filepath_temp_string = copy_string(info.full_name);
         transient_state.basename_temp_string = copy_string(basename);
 
-        font_slot_data := push_struct(*asset_manager.asset_arena, Asset_Slot);
+        font_slot_data := push_struct(*asset_manager.font_arena, Asset_Slot);
         font_slot_data.font_data.filepath  = copy_string(transient_state.filepath_temp_string);
         font_slot_data.font_data.font_name = copy_string(transient_state.basename_temp_string);
         font_slot_data.asset_type = Asset_Type_Data.FONT;
 
-        hash_insert_pair(*asset_manager.fonts, transient_state.basename_temp_string, cast(*void)font_slot_data);
+        hash_insert_pair(*asset_manager.font_hash, transient_state.basename_temp_string, cast(*void)font_slot_data);
         print("FONT LOADED: %\n", basename);
         print("FONT PATH  : %\n", transient_state.filepath_temp_string);
         print("\n\n");
@@ -817,7 +849,7 @@ is_char_latin :: (utf32: u32) -> bool {
     return true;
 }
 
-font_find_next_atlas_line :: inline (page: *Font_Page, width: u32, height: u32) -> iVector2
+font_find_next_atlas_line :: inline (page: *Dynamic_Render_Font_Page, width: u32, height: u32) -> iVector2
 {
     bitmap := *page.bitmap;
     desired_x := page.bitmap_cursor_x + xx width;
@@ -833,14 +865,19 @@ font_find_next_atlas_line :: inline (page: *Font_Page, width: u32, height: u32) 
     }
 }
 
-copy_glyph_to_page_bitmap :: (face: FT_Face, glyph: *Font_Glyph_Data)
+copy_glyph_to_page_bitmap :: (page: *Dynamic_Render_Font_Page, glyph: *Font_Glyph_Data)
 {
-    if glyph.page.bitmap.data.data == null
+    if page.bitmap.data == null
     {
-        glyph.page.bitmap = init_bitmap_data(glyph.page.parent_varient.parent_font.asset_arena, ENGINE_TEXTURE_WIDTH, ENGINE_TEXTURE_HEIGHT, Bitmap_Formats.FORMAT_RGBA);
+        page.bitmap = init_bitmap_data(page.parent_varient.parent_font.font_arena,
+                                       ENGINE_TEXTURE_WIDTH,
+                                       ENGINE_TEXTURE_HEIGHT,
+                                      .FORMAT_RGBA);
     }
+    assert(page.bitmap.data != null);
     
-    b := face.glyph.bitmap;
+    face := page.parent_varient.parent_font.font_face;
+    b    := face.glyph.bitmap;
 
     glyph.offset_x                = cast,trunc(s16)face.glyph.bitmap_left;
     glyph.offset_y                = cast,trunc(s16)face.glyph.bitmap_top;
@@ -849,7 +886,7 @@ copy_glyph_to_page_bitmap :: (face: FT_Face, glyph: *Font_Glyph_Data)
     metrics := *face.glyph.metrics;
     glyph.ascent = cast,trunc(s16)(metrics.horiBearingY >> 6);
 
-    atlas_dest := font_find_next_atlas_line(glyph.page, b.width, b.rows);
+    atlas_dest := font_find_next_atlas_line(glyph.owner_page, b.width, b.rows);
 
     dest_x: s32 = xx atlas_dest.x;
     dest_y: s32 = xx atlas_dest.y;
@@ -857,142 +894,181 @@ copy_glyph_to_page_bitmap :: (face: FT_Face, glyph: *Font_Glyph_Data)
     glyph.glyph_data.atlas_size.x = xx b.width;
     glyph.glyph_data.atlas_size.y = xx b.rows;
 
-    glyph.glyph_data.atlas_position.x = dest_x;
-    glyph.glyph_data.atlas_position.y = dest_y;
+    glyph.glyph_data.atlas_offset.x = dest_x;
+    glyph.glyph_data.atlas_offset.y = dest_y;
 
-    bitmap := *glyph.page.bitmap;
+    bitmap := *glyph.owner_page.bitmap;
 
-    rows  := cast(s32)b.rows; // FreeType has changed the rows and width types to unsigned, and they may be zero
+    rows  := cast(s32)b.rows; 
     width := cast(s32)b.width;
     for j : 0..rows-1 {
         for i : 0..width-1 {
             source_pixel := b.buffer[(rows - 1 - j) * b.pitch + i];
 
-            dest_pixel := bitmap.data.data + ((dest_y + j) * bitmap.width + (dest_x + i)) * 4;
+            dest_pixel := bitmap.data + ((dest_y + j) * bitmap.width + (dest_x + i)) * 4;
             dest_pixel[0] = source_pixel;
             dest_pixel[1] = source_pixel;
             dest_pixel[2] = source_pixel;
             dest_pixel[3] = source_pixel;
         }
     }
-    glyph.page.bitmap_cursor_x += cast(s16) b.width;
-
-    if glyph.page.texture.data == null
-    {
-        using glyph.page;
-        texture.data   = bitmap.data.data;
-        texture.width  = bitmap.width;
-        texture.height = bitmap.height;
-    }
+    glyph.owner_page.bitmap_cursor_x += cast(s16) b.width;
 }
 
-get_utf8_glyph :: (font_page: *Font_Page, char: *u8) -> *Font_Glyph_Data
+get_utf8_glyph :: (font_varient: *Dynamic_Render_Font_Varient, char: *u8) -> *Font_Glyph_Data
 {
-    utf32_char := convert_to_utf32(char);
-    //find_or_create_glyph(font, utf32, 0, utf32);
+    result     : *Font_Glyph_Data;
+    found_page : *Dynamic_Render_Font_Page;
 
-    test := tprint("%", utf32_char);
-    glyph := cast(*Font_Glyph_Data)hash_get_value(*font_page.glyph_lookup, test);
-    if glyph != null
+    utf32_char := convert_to_utf32(char);
+    if utf32_char
     {
-        return glyph;
+        temp := tprint("%", utf32_char);
+
+        page_ptr := font_varient.first_page;
+        while page_ptr != null
+        {
+            result = cast(*Font_Glyph_Data)hash_get_value(*page_ptr.glyph_lookup, temp);
+            if result
+            {
+                found_page = page_ptr; 
+                break;
+            }
+            page_ptr = page_ptr.next_page;
+        }
+
+        if !result && !found_page
+        {
+            new_page: *Dynamic_Render_Font_Page = font_varient.first_page;
+            while new_page
+            {
+                if !new_page.page_full
+                {
+                    found_page = new_page;
+                    break;
+                }
+                new_page = new_page.next_page;
+            }
+
+            if !found_page
+            {
+                new_page = font_varient.first_page;
+                while new_page
+                {
+                    if new_page.next_page == null
+                    {
+                        new_page.next_page                = push_struct(font_varient.parent_font.font_arena, Dynamic_Render_Font_Page);
+                        new_page.next_page.glyph_lookup   = hash_table_create(font_varient.parent_font.font_arena, 1024);
+                        new_page.next_page.parent_varient = font_varient;
+                        new_page.next_page.next_page      = null;
+
+                        found_page = new_page;
+                        break;
+                        
+                    }
+                    new_page = new_page.next_page;
+                }
+            }
+
+            error := FT_Set_Pixel_Sizes(found_page.parent_varient.parent_font.font_face,
+                                        0,
+                                        xx found_page.parent_varient.character_height);
+            assert(!error);
+
+            glyph_index : u32;
+            if utf32_char
+            {
+                glyph_index = FT_Get_Char_Index(found_page.parent_varient.parent_font.font_face, utf32_char);
+                if !glyph_index
+                {
+                    log_error("UTF32 character '%' cannot be found", utf32_char);
+                    glyph_index = found_page.parent_varient.default_unknown_character;
+                }
+
+                if glyph_index
+                {
+                    error = FT_Load_Glyph(found_page.parent_varient.parent_font.font_face, glyph_index, FT_LOAD_RENDER);
+                    assert(!error);
+                }
+            }
+            else
+            {
+                assert(glyph_index >= 0);
+                error = FT_Load_Glyph(found_page.parent_varient.parent_font.font_face, glyph_index, FT_LOAD_RENDER);
+                assert(!error);
+            }
+
+            data := push_struct(found_page.parent_varient.parent_font.font_arena, Font_Glyph_Data);
+            data.glyph_key  = glyph_index;
+            data.owner_page = found_page;
+
+            copy_glyph_to_page_bitmap(found_page, data);
+            found_page.page_dirty = true;
+
+            hash_insert_pair(*found_page.glyph_lookup, copy_string(temp), cast(*void)data);
+            result = data;
+        }
     }
     else
     {
-        error := FT_Set_Pixel_Sizes(font_page.parent_varient.parent_font.font_face,
-                                    0,
-                                    xx font_page.parent_varient.character_height);
-        //error := FT_Set_Char_Size(font_page.master_font.font_face, xx (font_page.character_height * 64), 0, 360, 0);
-        assert(!error);
-
-        glyph_index : u32;
-        if utf32_char
-        {
-            glyph_index = FT_Get_Char_Index(font_page.parent_varient.parent_font.font_face, utf32_char);
-            if !glyph_index
-            {
-                log_error("UTF32 character '%' cannot be found", utf32_char);
-                glyph_index = font_page.parent_varient.default_unknown_character;
-            }
-
-            if glyph_index
-            {
-                error = FT_Load_Glyph(font_page.parent_varient.parent_font.font_face, glyph_index, FT_LOAD_RENDER);
-                assert(!error);
-            }
-        }
-        else
-        {
-            assert(glyph_index >= 0);
-            error = FT_Load_Glyph(font_page.parent_varient.parent_font.font_face, glyph_index, FT_LOAD_RENDER);
-            assert(!error);
-        }
-
-        data := push_struct(font_page.parent_varient.parent_font.asset_arena, Font_Glyph_Data);
-        data.glyph_key = glyph_index;
-        data.page      = font_page;
-
-        copy_glyph_to_page_bitmap(font_page.parent_varient.parent_font.font_face, data);
-        font_page.page_dirty = true;
-
-        hash_insert_pair(*font_page.glyph_lookup, copy_string(test), cast(*void)data);
-        return data;
+        log("[ERROR]: Character '%s' does not return a valid utf32 character...", char);
     }
+    return result;
 }
 
-asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32) -> *Font_Varient
+asset_create_font_at_size :: (font: *Dynamic_Render_Font, size: s32) -> *Dynamic_Render_Font_Varient
 {
-    using dynamic_font;
-
-    raw_font_data = read_entire_file(dynamic_font.filepath);
-    if raw_font_data.data != null
+    result: *Dynamic_Render_Font_Varient;
+    
+    font.raw_font_data = read_entire_file(font.filepath);
+    if font.raw_font_data.data != null
     {
-        error := FT_New_Memory_Face(ft_library, raw_font_data.data, xx raw_font_data.count, 0, *font_face);
+        error := FT_New_Memory_Face(ft_library, font.raw_font_data.data, xx font.raw_font_data.count, 0, *font.font_face);
         if !error
         {
-            result            := cast(*Font_Varient)push_size(dynamic_font.asset_arena, size_of(Font_Varient));
-            result.first_page  = push_struct(dynamic_font.asset_arena, Font_Page);
-            
-            result.first_page.glyph_lookup = hash_table_create(asset_arena, 1024);
-            //result  := New(Font_Page);
-            success := FT_Set_Pixel_Sizes(font_face, 0, xx pixel_size);
-            //success := FT_Set_Char_Size(font_face, pixel_size * 64, 0, 360, 0);
+            result                         = push_struct(font.font_arena, Dynamic_Render_Font_Varient);
+            result.first_page              = push_struct(font.font_arena, Dynamic_Render_Font_Page);
+            result.first_page.glyph_lookup = hash_table_create(font.font_arena, 1024);
+
+            result.first_page.next_page = null;
+            result.first_page.parent_varient = result;
+            result.pixel_size = size;
+
+            success := FT_Set_Pixel_Sizes(font.font_face, 0, xx size);
             assert(!success);
 
-            font_scale_to_pixels := font_face.size.metrics.y_scale / (64.0 * 65536.0); 
-            result.character_height = pixel_size;
-            result.line_spacing     = cast(int)floor(font_scale_to_pixels * font_face.height + 0.5);
-            result.max_ascender     = cast(int)floor(font_scale_to_pixels * font_face.bbox.yMax + 0.5);
-            result.max_descender    = cast(int)floor(font_scale_to_pixels * font_face.bbox.yMin + 0.5);
-            result.parent_font      = dynamic_font;
-            result.first_page.parent_varient = result;
-            result.first_page.parent_varient.parent_font = dynamic_font;
+            font_scale_to_pixels := font.font_face.size.metrics.y_scale / (64.0 * 65536.0); 
+            result.character_height = size;
+            result.line_spacing     = cast(int)floor(font_scale_to_pixels * font.font_face.height + 0.5);
+            result.max_ascender     = cast(int)floor(font_scale_to_pixels * font.font_face.bbox.yMax + 0.5);
+            result.max_descender    = cast(int)floor(font_scale_to_pixels * font.font_face.bbox.yMin + 0.5);
+            result.parent_font      = font;
 
-            glyph_index := FT_Get_Char_Index(font_face, #char "m");
+            glyph_index := FT_Get_Char_Index(font.font_face, #char "m");
             if glyph_index {
-                FT_Load_Glyph(font_face, glyph_index, FT_LOAD_DEFAULT);
-                result.y_center_offset = xx (0.5 * FT_ROUND(font_face.glyph.metrics.horiBearingY) + 0.5);
+                FT_Load_Glyph(font.font_face, glyph_index, FT_LOAD_DEFAULT);
+                result.y_center_offset = xx (0.5 * FT_ROUND(font.font_face.glyph.metrics.horiBearingY) + 0.5);
             }
 
-            glyph_index  = FT_Get_Char_Index(font_face, #char "M");
+            glyph_index  = FT_Get_Char_Index(font.font_face, #char "M");
             if glyph_index {
-                FT_Load_Glyph(font_face, glyph_index, FT_LOAD_DEFAULT);
-                result.em_width = FT_ROUND(font_face.glyph.metrics.width);
+                FT_Load_Glyph(font.font_face, glyph_index, FT_LOAD_DEFAULT);
+                result.em_width = FT_ROUND(font.font_face.glyph.metrics.width);
             }
 
-            glyph_index  = FT_Get_Char_Index(font_face, #char "T");
+            glyph_index  = FT_Get_Char_Index(font.font_face, #char "T");
             if glyph_index {
-                FT_Load_Glyph(font_face, glyph_index, FT_LOAD_DEFAULT);
-                result.typical_ascender = FT_ROUND(font_face.glyph.metrics.horiBearingY);
+                FT_Load_Glyph(font.font_face, glyph_index, FT_LOAD_DEFAULT);
+                result.typical_ascender = FT_ROUND(font.font_face.glyph.metrics.horiBearingY);
             }
 
-            glyph_index  = FT_Get_Char_Index(font_face, #char "g");
+            glyph_index  = FT_Get_Char_Index(font.font_face, #char "g");
             if glyph_index {
-                FT_Load_Glyph(font_face, glyph_index, FT_LOAD_DEFAULT);
-                result.typical_descender = FT_ROUND(font_face.glyph.metrics.horiBearingY - font_face.glyph.metrics.height);
+                FT_Load_Glyph(font.font_face, glyph_index, FT_LOAD_DEFAULT);
+                result.typical_descender = FT_ROUND(font.font_face.glyph.metrics.horiBearingY - font.font_face.glyph.metrics.height);
             }
 
-            error := FT_Select_Charmap(font_face, .UNICODE);
+            error := FT_Select_Charmap(font.font_face, .UNICODE);
             if error
             {
                 log_error("Font does not support UNICODE...\n");
@@ -1007,8 +1083,7 @@ asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32)
                 }
             }
 
-            array_add(*pixel_sizes, result);
-            return(result);
+            array_add(*font.pixel_sizes, result);
         }
         else
         {
@@ -1017,49 +1092,39 @@ asset_load_font_at_size :: (dynamic_font: *Dynamic_Render_Font, pixel_size: s32)
     }
     else
     {
-        log("[ERROR]: Failed to read the font file, filepath: %\n", dynamic_font.filepath);
+        log("[ERROR]: Failed to read the font file, filepath: %\n", font.filepath);
     }
-    return null;
+
+    return result;
 }
 
-asset_get_font_at_size :: inline (using dynamic_font: *Dynamic_Render_Font, font_scale: s32) -> *Font_Page
+asset_get_font_at_size :: (font: *Dynamic_Render_Font, size: s32) -> *Dynamic_Render_Font_Varient
 {
-    result : *Font_Page = null;
-
-    for pixel_sizes
+    result: *Dynamic_Render_Font_Varient;
+    for *pixel_size: font.pixel_sizes
     {
-        if it.character_height == font_scale
+        if pixel_size.pixel_size == size
         {
-            page_ptr := it.first_page;
-            while page_ptr != null
-            {
-                if !page_ptr.page_full
-                {
-                    result = page_ptr;
-                    break;
-                }
-                else
-                {
-                    page_ptr = page_ptr.next_page;
-                }
-            }
+            result = pixel_size;
         }
     }
 
-    if result == null then
-    result = asset_load_font_at_size(dynamic_font, font_scale).first_page;
+    if !result
+    {
+        result = asset_create_font_at_size(font, size);
+    }
 
     return result;
 }
 
 asset_get_font :: (asset_manager: *Asset_Manager, name: string) -> *Dynamic_Render_Font
 {
-    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.fonts, name);
+    asset_slot := cast(*Asset_Slot)hash_get_value(*asset_manager.font_hash, name);
     result: *Dynamic_Render_Font = *null_font;
     if asset_slot != null
     {
         result = *asset_slot.font_data;
-        result.asset_arena = *asset_manager.asset_arena;
+        result.font_arena = *asset_manager.font_arena;
     }
     else
     {
@@ -1071,7 +1136,7 @@ asset_get_font :: (asset_manager: *Asset_Manager, name: string) -> *Dynamic_Rend
 #scope_file
 ft_library: FT_Library;
 
-set_unknown_character :: (font_varient: *Font_Varient, utf32: u32) -> bool {
+set_unknown_character :: (font_varient: *Dynamic_Render_Font_Varient, utf32: u32) -> bool {
     index := FT_Get_Char_Index(font_varient.parent_font.font_face, utf32);
     if !index return false;
 

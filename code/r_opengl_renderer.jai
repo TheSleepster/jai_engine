@@ -7,14 +7,6 @@ Vertex :: struct
     vRenderFlags  :  u32;
 };
 
-Visit_File_Data :: struct
-{
-    game_state      : *Game_State;
-    render_state    : *Render_State;
-
-    transient_state : *Transient_State;
-};
-
 Render_Layer_Info :: struct
 {
     base_quad_index   : s32;
@@ -94,7 +86,7 @@ update_texture_from_bitmap :: (bitmap: *Bitmap, texture: *Texture2D, has_AA := f
     
     glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, 
                  xx bitmap.width, xx bitmap.height, 0, 
-                 GL_RGBA, GL_UNSIGNED_BYTE, bitmap.data.data);
+                 GL_RGBA, GL_UNSIGNED_BYTE, bitmap.data);
     
     glBindTexture(GL_TEXTURE_2D, 0);
 }

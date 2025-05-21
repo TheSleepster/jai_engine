@@ -174,7 +174,7 @@ draw_rect :: (draw_frame          : *Draw_Frame_Data,
 draw_texture :: (draw_frame    : *Draw_Frame_Data,
                  position      :  Vector2,
                  render_size   :  iVector2,
-                 sprite        : *Atlas_Sprite,
+                 sprite        : *Sprite2D,
                  draw_color    :  Vector4) -> *Render_Quad
 {
     if sprite == null
@@ -186,7 +186,7 @@ draw_texture :: (draw_frame    : *Draw_Frame_Data,
     return draw_quad(draw_frame, position,
                      render_size,
                      sprite.atlas_texture.texID,
-                     sprite.atlas_position,
+                     sprite.atlas_offset,
                      sprite.atlas_size,
                      0,
                      draw_color);
@@ -194,7 +194,7 @@ draw_texture :: (draw_frame    : *Draw_Frame_Data,
 
 draw_quad_xform :: (draw_frame    : *Draw_Frame_Data,
                     xform         :  Matrix4,
-                    sprite        : *Atlas_Sprite,
+                    sprite        : *Sprite2D,
                     draw_color    :  Vector4 = .{1, 1, 1, 1}) -> *Render_Quad
 {
     if sprite == null
@@ -208,7 +208,7 @@ draw_quad_xform :: (draw_frame    : *Draw_Frame_Data,
                                     .{1, 1},
                                     xform,
                                     sprite.atlas_texture.texID,
-                                    sprite.atlas_position,
+                                    sprite.atlas_offset,
                                     sprite.atlas_size,
                                     0,
                                     draw_color);
@@ -225,26 +225,27 @@ draw_quad_xform_in_view :: (draw_frame : *Draw_Frame_Data, quad : *Render_Quad, 
     return draw_quad_projected(draw_frame, quad, world_to_clip);
 }
 
-prepare_string :: (page : *Font_Page, text: string) -> s32 
+prepare_string :: (varient: *Dynamic_Render_Font_Varient, text: string) -> s32 
 {
     result: s32;
     
     temp := text.data;
+    glyph: *Font_Glyph_Data;
     while temp < text.data + text.count
     {
         char: string;
         char.data = temp; 
         char.count = 1;
         
-        glyph     := get_utf8_glyph(page, temp);
+        glyph      = get_utf8_glyph(varient, temp);
         result    += glyph.glyph_data.atlas_size.x + glyph.advance;
         temp       = unicode_next_character(temp);
     }
     
-    if page.page_dirty
+    if glyph.owner_page.page_dirty
     {
-        update_texture_from_bitmap(*page.bitmap, *page.texture, true, Filter_Type.LINEAR);
-        page.page_dirty = false;
+        update_texture_from_bitmap(*glyph.owner_page.bitmap, *glyph.owner_page.texture_data, true, Filter_Type.LINEAR);
+        glyph.owner_page.page_dirty = false;
     }
     return result;
 }
@@ -276,7 +277,7 @@ draw_text :: (draw_frame   : *Draw_Frame_Data,
                 render_pos.x += glyph.advance;
                 continue;
             }
-            glyph.glyph_data.atlas_texture = *glyph.page.texture;
+            glyph.glyph_data.atlas_texture = *glyph.owner_page.texture_data;
             draw_texture(draw_frame,
                          (Vector2).{floor(render_pos.x + glyph.offset_x), floor(render_pos.y + (glyph.ascent - glyph.glyph_data.atlas_size.y))},
                          .{xx glyph.glyph_data.atlas_size.x, xx glyph.glyph_data.atlas_size.y},
@@ -326,7 +327,7 @@ draw_line :: (draw_frame: *Draw_Frame_Data, start: Vector2, end: Vector2, thickn
     adjusted_position.y = start.y - thickness;
 
     quad := create_draw_quad(draw_frame, adjusted_position, iv2_cast(render_size), null_matrix, 
-                             sprite_outline.atlas_texture.texID, sprite_outline.atlas_position,
+                             sprite_outline.atlas_texture.texID, sprite_outline.atlas_offset,
                              sprite_outline.atlas_size, rotation, color);
 
     xform         := mat4_identity();

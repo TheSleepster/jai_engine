@@ -718,23 +718,23 @@ game_update_and_render :: (game_memory: *Game_Memory, window_data: *Window_Data,
     push_render_layer(draw_frame, 0);
 }
 
-default_sprite        : *Atlas_Sprite;
-sprite_furnace        : *Atlas_Sprite;
-sprite_player         : *Atlas_Sprite;
-sprite_base_block     : *Atlas_Sprite;
-sprite_fire           : *Atlas_Sprite;
-sprite_workbench      : *Atlas_Sprite;
-sprite_textureless    : *Atlas_Sprite;
-sprite_stone_node     : *Atlas_Sprite; 
-sprite_coal_node      : *Atlas_Sprite;  
-sprite_tree_00        : *Atlas_Sprite;
+default_sprite        : *Sprite2D;
+sprite_furnace        : *Sprite2D;
+sprite_player         : *Sprite2D;
+sprite_base_block     : *Sprite2D;
+sprite_fire           : *Sprite2D;
+sprite_workbench      : *Sprite2D;
+sprite_textureless    : *Sprite2D;
+sprite_stone_node     : *Sprite2D; 
+sprite_coal_node      : *Sprite2D;  
+sprite_tree_00        : *Sprite2D;
 
-sprite_stone_chunk    : *Atlas_Sprite;
-sprite_coal_chunk     : *Atlas_Sprite;
-sprite_wood_chunk     : *Atlas_Sprite;
-sprite_outline        : *Atlas_Sprite;
+sprite_stone_chunk    : *Sprite2D;
+sprite_coal_chunk     : *Sprite2D;
+sprite_wood_chunk     : *Sprite2D;
+sprite_outline        : *Sprite2D;
 
-sprite_WFC_input      : *Atlas_Sprite;
+sprite_WFC_input      : *Sprite2D;
 
 game_atlas            : *Texture2D;
 game_font             : *Dynamic_Render_Font;

@@ -181,7 +181,7 @@ WFC_Cell :: struct
 
 WFC_Module :: struct
 {
-    sprite      : Atlas_Sprite;
+    sprite      : Sprite2D;
     constraints : [Directions.COUNT]Bitset;
     weight      : float32;
 };
@@ -892,7 +892,7 @@ WFC_Generator_Module :: struct
     is_valid            : bool;
 
     constraint_data     : [4]WFC_Generator_Neighbor_Data;
-    sprite_data         :    Atlas_Sprite;
+    sprite_data         :    Sprite2D;
     module_frequency    :    float32;
 };
 

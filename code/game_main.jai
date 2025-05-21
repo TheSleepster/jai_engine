@@ -80,8 +80,7 @@ null_matrix   :: Matrix4.{};
 null_texture   : Texture2D           = .{};
 null_soundfx   : Loaded_Sound_Data   = .{};
 null_font      : Dynamic_Render_Font = .{}; 
-null_font_page : Font_Page           = .{};
-null_sprite    : Atlas_Sprite        = .{parent_texture = *null_texture, atlas_texture = *null_texture};
+null_sprite    : Sprite2D            = .{parent_texture = *null_texture, atlas_texture = *null_texture};
 null_shader    : Shader_Data         = .{shader_type = xx Shader_Type.UNDEFINED}; 
 null_vector2   : Vector2             = .{};
 
@@ -318,7 +317,13 @@ game_main :: (window_data: *Window_Data, library: *SLP_Dynamic_Library = null) -
             game_state.is_initialized = false;
         }
         
-        asset_manager.asset_arena      = init_arena(MB(100));
+        asset_manager.hash_data_arena = init_arena(MB(100));
+        asset_manager.texture_arena   = init_arena(MB(100));
+        asset_manager.sprite_arena    = init_arena(MB(100));
+        asset_manager.sound_arena     = init_arena(MB(100));
+        asset_manager.shader_arena    = init_arena(MB(100));
+        asset_manager.font_arena      = init_arena(MB(100));
+
         render_state.render_arena      = init_arena(MB(100));
         sound_manager.sound_arena      = init_arena(MB(100));
         transient_state.garbage_arena  = init_arena(MB(100));
@@ -497,17 +502,17 @@ game_main :: (window_data: *Window_Data, library: *SLP_Dynamic_Library = null) -
             // IMPORTANT(Sleepster): WARNING THIS FUNCTION IS SLOW AS BALLS 
             hotload_assets(*asset_manager);
             hotload_variable_file_data("../data/res");
-            if library != null
+        }
+        if library != null
+        {
+            old_last_mod_time := library.last_mod_time;
+            old_last_mod_size := library.last_mod_size;
+            
+            library.last_mod_time, library.last_mod_size = file_modtime_and_size(lib_filepath);
+            if library.last_mod_size != old_last_mod_size &&
+                library.last_mod_time != old_last_mod_time
             {
-                old_last_mod_time := library.last_mod_time;
-                old_last_mod_size := library.last_mod_size;
-                
-                library.last_mod_time, library.last_mod_size = file_modtime_and_size(lib_filepath);
-                if library.last_mod_size != old_last_mod_size &&
-                   library.last_mod_time != old_last_mod_time
-                {
-                    return false;
-                }
+                return false;
             }
         }
         reset_frame_data(transient_state, *draw_frame_data, window_data);

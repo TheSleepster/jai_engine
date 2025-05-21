@@ -25,7 +25,7 @@ Entity_Data_Entry :: struct
     ID              :  Entity_ID;
     entity_arch     :  entity_archetype;
     flags           :  u64;
-    sprite          :  Atlas_Sprite;
+    sprite          :  Sprite2D;
     speed           :  float32;
     friction        :  float32;
     max_health      :  s32;
@@ -42,7 +42,7 @@ Item_Data_Entry :: struct
     entity_arch        :  entity_archetype;
     name               :  string;
     description        :  string;
-    sprite             :  Atlas_Sprite;
+    sprite             :  Sprite2D;
     flags_when_dropped :  u64;
 
     pickup_delay       :  float32;
@@ -77,7 +77,7 @@ create_item_and_add_to_catalog :: (game_data    : *Game_Data,
                                    entity_arch  :  entity_archetype,
                                    name         :  string,
                                    description  :  string,
-                                   sprite       : *Atlas_Sprite,
+                                   sprite       : *Sprite2D,
                                    flags        :  u64,
                                    pickup_delay :  float32,
                                    max_stack    :  u32)
@@ -98,7 +98,7 @@ create_entity_and_add_to_catalog :: (game_data     : *Game_Data,
                                      entity_arch   :  entity_archetype,
                                      item_on_drop  :  Item_ID,
                                      flags         :  u64,
-                                     sprite        : *Atlas_Sprite,
+                                     sprite        : *Sprite2D,
                                      move_speed    :  float32,
                                      friction      :  float32,
                                      max_health    :  s32,
