@@ -33,15 +33,11 @@ RENDERER:
   - [ ] (optional) Allow the drawing API to draw simple lines. Idk why this HAS to be here.
 
 ASSET MANAGER:
-  - [ ] Revise the asset manager
-  - [ ] When we revise the manager, properly fix the font system
-  - [ ] Improve hot reloading of the assets???
   - [ ] Asset file format on par with that the .WAD file format used in DOOM
   - [ ] Change how textures are thrown into the atlas 
-  - [ ] Support animated sprites
-  - [ ] Allow textures to be evicted from both memory and the texture atlas. 
-        We can do this by adding a bitmap to the atlas and storing in the texture itself the beginning and end 
-        pointers into the texture atlas' data buffer.
+  - [ ] Improve hot reloading of the assets??? 
+  - [ ] Have all image types (textures, atlases, etc.) store a bitmap natively
+  - [ ] Track the size and usage of larger assets like sounds files, allowing us to evict them when needed
 
 FIXES:
   - [ ] Radix sort might be bugged
@@ -60,6 +56,9 @@ DONE:
   - [x] Platform indepedent networking API, jai's module isn't too great me thinks. 
   - [x] Fix the dynamic font loader so that it actually works as intended and doesn't crash when we run out of atlas space
   - [x] Hotreloading of the game file??? 
+  - [x] When we revise the manager, properly fix the font system
+  - [x] Revise the asset manager
+  - [x] Support animated sprites
 */
 
 #if OS == .WINDOWS

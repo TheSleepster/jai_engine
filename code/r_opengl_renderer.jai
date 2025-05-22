@@ -103,8 +103,8 @@ create_texture_from_data :: (texture: *Texture2D) -> bool
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
         glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, 
-                     cast(u32)texture.width, cast(u32)texture.height, 0, 
-                     GL_RGBA, GL_UNSIGNED_BYTE, texture.data);
+                     cast(u32)texture.bitmap_data.width, cast(u32)texture.bitmap_data.height, 0, 
+                     GL_RGBA, GL_UNSIGNED_BYTE, texture.bitmap_data.data);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         texture.is_GPU_texture = true;

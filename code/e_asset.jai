@@ -148,11 +148,15 @@ init_asset_manager_data :: (render_state: *Render_State, asset_manager: *Asset_M
 ////////////////
 // SPRITES
 ////////////////
+
+// NOTE(Sleepster): A sprite is essentially a texture-rect section of a bigger texture 
 Sprite2D :: struct
 {
-    atlas_offset : iVector2;
-    atlas_size   : iVector2;
-    rotation     : float32;
+    atlas_offset  : iVector2;
+    atlas_size    : iVector2;
+
+    frame_count   : u32;
+    current_frame : u32;
 
     parent_texture : *Texture2D;
     atlas_texture  : *Texture2D;
@@ -194,11 +198,8 @@ asset_get_sprite :: (asset_manager: *Asset_Manager, key: string) -> *Sprite2D
 Texture2D :: struct
 {
     texID          :  u32;
-    width          :  s32;
-    height         :  s32;
-    channels       :  s32;
-
-    data           : *u8;
+    bitmap_data    :  Bitmap;
+    
     filepath       :  string;
     hash_name      :  string;
 
@@ -231,6 +232,27 @@ init_asset_image_metadata_from_disk :: (info: *File_Visit_Info, user_data: *void
     }
 }
 
+asset_synchronous_load_texture_data :: inline (asset_slot: *Asset_Slot)
+{
+    if asset_slot.slot_state != .LOADED
+    {
+        asset_slot.slot_state = .LOADED;
+        
+        texture     := *asset_slot.texture_data;
+        texture.bitmap.data = stbi_load(temp_c_string(texture.filepath),
+                                        *texture.bitmap.width,
+                                        *texture.bitmap.height,
+                                        xx *texture.bitmap.channels,
+                                        0);
+        texture.bitmap.is_valid = true;
+        texture.bitmap.is_dirty = true;
+    }
+    else
+    {
+        log("[WARNING]: Not loading asset '%' as it is already designated as loaded...\n", texture.filepath);
+    }
+}
+
 asset_load_texture_from_path :: (asset_manager: *Asset_Manager, filepath: string, make_GPU_texture := false) -> *Texture2D, bool
 {
     result: *Texture2D;
@@ -243,13 +265,16 @@ asset_load_texture_from_path :: (asset_manager: *Asset_Manager, filepath: string
         manager_texture := *asset_slot.texture_data;
         if !manager_texture.is_loaded
         {
-            manager_texture.data = stbi_load(manager_texture.filepath.data, *manager_texture.width, *manager_texture.height, *manager_texture.channels, 0);
+            manager_texture.bitmap_data.data = stbi_load(manager_texture.filepath.data,
+                                                         *manager_texture.bitmap_data.width,
+                                                         *manager_texture.bitmap_data.height,
+                                                         *manager_texture.bitmap_data.channels, 0);
             manager_texture.is_loaded = true;
 
             allocated = true;
         }
 
-        assert(manager_texture.data != null);
+        assert(manager_texture.bitmap_data.data != null);
         result = manager_texture;
     }
     else
@@ -270,13 +295,16 @@ asset_load_texture_data :: (asset_manager: *Asset_Manager, result: *Texture2D,  
         manager_texture := *asset_slot.texture_data;
         if !manager_texture.is_loaded
         {
-            manager_texture.data = stbi_load(manager_texture.filepath.data, *manager_texture.width, *manager_texture.height, *manager_texture.channels, 0);
+            manager_texture.bitmap_data.data = stbi_load(manager_texture.filepath.data,
+                                                         *manager_texture.bitmap_data.width,
+                                                         *manager_texture.bitmap_data.height,
+                                                         *manager_texture.bitmap_data.channels, 0);
 
             result.is_loaded = true;
             allocated = true;
         }
 
-        assert(manager_texture.data != null);
+        assert(manager_texture.bitmap_data.data != null);
         result.* = manager_texture.*;
     }
     else
@@ -293,15 +321,15 @@ push_sprite_into_atlas :: (atlas: *Texture2D, sprite: *Sprite2D)
     {
         for y: 0..sprite.atlas_size.y -1
         {
-            atlas_texture_data_offset := ((sprite.atlas_offset.y + y) * atlas.width +
-                                          (sprite.atlas_offset.x + x)) * atlas.channels;
+            atlas_texture_data_offset := ((sprite.atlas_offset.y + y) * atlas.bitmap_data.width +
+                                          (sprite.atlas_offset.x + x)) * atlas.bitmap_data.channels;
 
             sprite_texture_data_offset := (y * sprite.atlas_size.x + x) *
-                                           sprite.parent_texture.channels;
-            for channel_index: 0..sprite.parent_texture.channels - 1
+                                           sprite.parent_texture.bitmap_data.channels;
+            for channel_index: 0..sprite.parent_texture.bitmap_data.channels - 1
             {
-                atlas.data[atlas_texture_data_offset + channel_index] =
-                    sprite.parent_texture.data[sprite_texture_data_offset + channel_index];
+                atlas.bitmap_data.data[atlas_texture_data_offset + channel_index] =
+                    sprite.parent_texture.bitmap_data.data[sprite_texture_data_offset + channel_index];
             }
         }
     }
@@ -310,19 +338,20 @@ push_sprite_into_atlas :: (atlas: *Texture2D, sprite: *Sprite2D)
 move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atlas_height: s32) -> *Texture2D
 {
     atlas_texture : *Texture2D = push_struct(*asset_manager.texture_arena, Texture2D);
-    atlas_texture.width        = atlas_width;
-    atlas_texture.height       = atlas_height;
-    atlas_texture.channels     = 4;
-    if atlas_texture.data == null
+    atlas_texture.bitmap_data.width        = atlas_width;
+    atlas_texture.bitmap_data.height       = atlas_height;
+    atlas_texture.bitmap_data.channels     = 4;
+    if atlas_texture.bitmap_data.data == null
     {
-        atlas_texture.data     = push_size(*asset_manager.texture_arena, size_of(u8) * ((atlas_width * atlas_height) * 4));
+        atlas_texture.bitmap_data.data     = push_size(*asset_manager.texture_arena,
+                                                       size_of(u8) * ((atlas_width * atlas_height) * 4));
     }
 
     textures := asset_manager.transient_textures;
 
     sorted_textures: [64]Texture2D;
     memcpy(sorted_textures.data, textures.data, size_of(Texture2D) * asset_manager.textures_to_insert);
-    quick_sort(sorted_textures, (x, y) => compare(x.height, y.height));
+    quick_sort(sorted_textures, (x, y) => compare(x.bitmap_data.height, y.bitmap_data.height));
 
     x_position : s32 = 0;
     y_position : s32 = 0;
@@ -330,7 +359,7 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
     for index : 0..asset_manager.textures_to_insert - 1
     {
         texture := *sorted_textures[index];
-        if texture.data != null
+        if texture.bitmap_data.data != null
         {
             main_texture := *textures[texture.original_index_before_sorting];
             
@@ -339,7 +368,7 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
             sprite_slot.asset_type = Asset_Type_Data.SPRITE;
 
             texture_rect := *sprite_slot.sprite_data;
-            texture_rect.atlas_size     = .{texture.width, texture.height};
+            texture_rect.atlas_size     = .{texture.bitmap_data.width, texture.bitmap_data.height};
             texture_rect.parent_texture =  main_texture;
             texture_rect.atlas_texture  =  atlas_texture;
             if x_position + texture_rect.atlas_size.x > atlas_width
@@ -361,9 +390,11 @@ move_images_into_atlas :: (asset_manager: *Asset_Manager, atlas_width: s32, atla
             push_sprite_into_atlas(atlas_texture, texture_rect);
             hash_insert_pair(*asset_manager.sprite_hash, texture.hash_name, sprite_slot);
 
-            stbi_image_free(texture.data);
-            texture_rect.parent_texture.is_loaded  = false;
-            texture_rect.parent_texture.data       = null;
+            stbi_image_free(texture.bitmap_data.data);
+            texture_rect.parent_texture.is_loaded            = false;
+            texture_rect.parent_texture.bitmap_data.data     = null;
+            texture_rect.parent_texture.bitmap_data.is_dirty = false;
+            texture_rect.parent_texture.bitmap_data.is_valid = false;
         }
     }
 
@@ -444,9 +475,11 @@ asset_get_texture :: (asset_manager: *Asset_Manager, key: string) -> *Texture2D
 
 asset_release_texture :: (texture: *Texture2D)
 {
-    stbi_image_free(texture.data);
-    texture.data      = null;
-    texture.is_loaded = false;
+    stbi_image_free(texture.bitmap_data.data);
+    texture.bitmap_data.data      = null;
+    texture.bitmap_data.is_valid  = false;
+    texture.bitmap_data.is_dirty  = false;
+    texture.is_loaded             = false;
 }
 
 //////////////
@@ -719,7 +752,7 @@ Bitmap :: struct
 {
     data     :  *u8;
     format   :   u8;
-    channels :   u32;
+    channels :   s32;
     
     stride   :   s32;
     is_dirty :   bool;
@@ -736,6 +769,7 @@ init_bitmap_data :: (arena: *Memory_Arena, width: s32, height: s32, format: Bitm
     result.width  = width;
     result.height = height;
     result.stride = (1 * result.format);
+    result.format = xx format;
     result.data   = push_size(arena, size_of(u8) * cast(u32)(result.width * result.height) * result.format);
 
     return result;

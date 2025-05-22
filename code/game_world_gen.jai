@@ -920,8 +920,8 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
     atlas_sprite            := asset_get_sprite(asset_manager,  basename);
     texture_data, allocated := asset_load_texture_from_path(asset_manager, filepath); 
 
-    grid_width  := texture_data.width  / tile_size.x;
-    grid_height := texture_data.height / tile_size.y;
+    grid_width  := texture_data.bitmap_data.width  / tile_size.x;
+    grid_height := texture_data.bitmap_data.height / tile_size.y;
     hash_size   := ((grid_width * grid_height) * 2);
 
     generator: WFC_Generator;
@@ -959,10 +959,10 @@ WFC_analyze :: (arena: *Memory_Arena, asset_manager: *Asset_Manager, filepath: s
                     pixel_x := grid_x * tile_size.x + x;
                     pixel_y := grid_y * tile_size.y + y;
 
-                    pixel_index := (pixel_y * atlas_sprite.atlas_size.x + pixel_x) * texture_data.channels;
-                    for channel: 0..texture_data.channels - 1
+                    pixel_index := (pixel_y * atlas_sprite.atlas_size.x + pixel_x) * texture_data.bitmap_data.channels;
+                    for channel: 0..texture_data.bitmap_data.channels - 1
                     {
-                        hash_value = hash_value ^ texture_data.data[pixel_index + channel];
+                        hash_value = hash_value ^ texture_data.bitmap_data.data[pixel_index + channel];
                         hash_value = hash_value * 1099511628211;
                     }
                 }
